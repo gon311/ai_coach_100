@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>홈 체력 측정 프로토타입</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: { 'slide-up': 'slideUp 0.3s ease-out' },
+                    keyframes: { slideUp: { '0%': { transform: 'translateY(100%)' }, '100%': { transform: 'translateY(0)' } } }
+                }
+            }
+        }
+    </script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Chart.js for Radar Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { background-color: #e5e7eb; display: flex; justify-content: center; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        /* 모바일 디바이스 해상도 모방 (Max 430px, Min height 100vh) */
+        #root { width: 100%; max-width: 430px; background-color: white; min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.1); position: relative; overflow-x: hidden; }
+        
+        /* 스크롤바 숨기기 (모바일 앱 느낌) */
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function App() {
+            const [currentScreen, setCurrentScreen] = useState('Home');
+            
+            // 화면 이동 함수
+            const navigate = (screen) => {
+                window.scrollTo(0, 0);
+                setCurrentScreen(screen);
+            };
+
+            return (
+                <div className="flex flex-col h-full bg-white relative">
+                    {currentScreen === 'Home' && <ScreenHome onNavigate={navigate} />}
+                    {currentScreen === 'Profile' && <ScreenProfile onNavigate={navigate} />}
+                    {currentScreen === 'Prep' && <ScreenPrep onNavigate={navigate} />}
+                    {currentScreen === 'TestAction' && <ScreenTestAction onNavigate={navigate} />}
+                    {currentScreen === 'Result' && <ScreenResult onNavigate={navigate} />}
+                </div>
+            );
+        }
+
+        /* ---------------- Screen 1: Home ---------------- */
+        function ScreenHome({ onNavigate }) {
+            const [showSheet, setShowSheet] = useState(false);
+            return (
+                <div className="flex flex-col min-h-screen relative pb-10 bg-white">
+                    <div className="p-6 pt-12 bg-blue-600 text-white rounded-b-3xl shadow-md">
+                        <h1 className="text-2xl font-bold mb-2">안녕하세요, 김국민 님!</h1>
+                        <p className="opacity-80 text-sm">마지막 측정일: 2023.10.12</p>
+                        <div className="mt-6 bg-white/20 p-5 rounded-2xl flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium mb-1">나의 홈 체력 종합 등급</p>
+                                <p className="text-4xl font-black">2등급</p>
+                            </div>
+                            <i className="fa-solid fa-medal text-5xl text-yellow-300 drop-shadow-md"></i>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 p-6 flex flex-col justify-center items-center mt-4">
+                        <div className="w-40 h-40 bg-gray-100 rounded-full flex items-center justify-center mb-10">
+                            <i className="fa-solid fa-person-running text-6xl text-gray-300"></i>
+                        </div>
+                        <h2 className="text-lg font-bold text-gray-700 mb-8 text-center">나의 현재 체력을<br/>빠르게 진단해보세요</h2>
+                        <button onClick={() => setShowSheet(true)} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform">
+                            + 새로운 체력 측정하기
+                        </button>
+                    </div>
+
+                    {showSheet && (
+                        <div className="absolute inset-0 bg-black/60 z-10 flex flex-col justify-end transition-opacity" onClick={() => setShowSheet(false)}>
+                            <div className="bg-white rounded-t-3xl p-6 pb-12 animate-slide-up" onClick={(e) => e.stopPropagation()}>
+                                <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6"></div>
+                                <h3 className="text-xl font-bold mb-4 text-gray-800">체력 기록 추가 방식</h3>
+                                
+                                <button className="w-full text-left p-5 border border-gray-200 rounded-2xl mb-3 flex items-center hover:bg-gray-50 transition-colors">
+                                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-xl mr-4">🏢</div>
+                                    <div>
+                                        <p className="font-bold text-gray-800">국민체력100 센터 기록 연동</p>
+                                        <p className="text-xs text-gray-500 mt-1">최근 오프라인 검사 결과를 가져옵니다.</p>
+                                    </div>
+                                </button>
+                                
+                                <button onClick={() => onNavigate('Profile')} className="w-full text-left p-5 border-2 border-blue-600 bg-blue-50 rounded-2xl flex items-center relative overflow-hidden">
+                                    <div className="absolute -right-4 -top-4 text-blue-100 text-6xl opacity-30"><i className="fa-solid fa-house"></i></div>
+                                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-xl mr-4 shadow-sm">🏠</div>
+                                    <div className="relative z-10">
+                                        <p className="font-bold text-blue-800">집에서 셀프 측정하기</p>
+                                        <p className="text-xs text-blue-600 mt-1">층간소음 없는 동작이 기본 적용됩니다.</p>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        /* ---------------- Screen 2: Profile & PAR-Q ---------------- */
+        function ScreenProfile({ onNavigate }) {
+            const [step, setStep] = useState(1);
+            return (
+                <div className="flex flex-col min-h-screen p-6 pt-14 bg-white">
+                    <button onClick={() => step === 1 ? onNavigate('Home') : setStep(1)} className="mb-8 w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600">
+                        <i className="fa-solid fa-arrow-left"></i>
+                    </button>
+                    
+                    {step === 1 ? (
+                        <div className="flex-1 flex flex-col">
+                            <div className="mb-2 text-blue-600 font-bold text-sm">Step 1. 건강 문진표</div>
+                            <h2 className="text-3xl font-bold mb-3 leading-tight text-gray-800">안전을 위해<br/>건강 상태를 체크할게요</h2>
+                            <p className="text-gray-500 mb-10 text-sm">해당하는 항목이 있다면 의사와 상담이 필요합니다.</p>
+                            
+                            <div className="space-y-4 flex-1">
+                                {[
+                                    '현재 뼈나 관절에 통증이 있나요?',
+                                    '운동 중 가슴에 통증을 느낀 적이 있나요?',
+                                    '어지러움으로 인해 쓰러진 적이 있나요?',
+                                    '고혈압 약이나 심장 질환 약을 복용 중이신가요?'
+                                ].map((q, idx) => (
+                                    <label key={idx} className="p-5 border border-gray-200 rounded-2xl flex justify-between items-center bg-gray-50 cursor-pointer">
+                                        <p className="text-gray-700 pr-4">{q}</p>
+                                        <input type="checkbox" className="w-6 h-6 text-blue-600 rounded" />
+                                    </label>
+                                ))}
+                            </div>
+                            
+                            <div className="mt-8">
+                                <button onClick={() => setStep(2)} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg active:scale-95 transition-transform">
+                                    해당사항 없음 (다음으로)
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex-1 flex flex-col animate-slide-up">
+                            <div className="mb-2 text-blue-600 font-bold text-sm">Step 2. 신체 정보</div>
+                            <h2 className="text-3xl font-bold mb-3 leading-tight text-gray-800">신체 정보를<br/>입력해 주세요</h2>
+                            <p className="text-gray-500 mb-10 text-sm">체성분(BMI) 및 연령대별 기준 산출에 사용됩니다.</p>
+                            
+                            <div className="space-y-6 flex-1">
+                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                    <label className="block text-sm font-bold text-gray-700 mb-3">출생년도</label>
+                                    <input type="number" placeholder="YYYY" className="w-full p-4 border border-gray-300 rounded-xl text-xl bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all" defaultValue="1990" />
+                                </div>
+                                
+                                <div className="flex space-x-4">
+                                    <div className="flex-1 bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                        <label className="block text-sm font-bold text-gray-700 mb-3">키 (cm)</label>
+                                        <input type="number" placeholder="170" className="w-full p-4 border border-gray-300 rounded-xl text-xl bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all" defaultValue="175" />
+                                    </div>
+                                    <div className="flex-1 bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                                        <label className="block text-sm font-bold text-gray-700 mb-3">몸무게 (kg)</label>
+                                        <input type="number" placeholder="65" className="w-full p-4 border border-gray-300 rounded-xl text-xl bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all" defaultValue="70" />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-8">
+                                <button onClick={() => onNavigate('Prep')} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform">
+                                    입력 완료
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        /* ---------------- Screen 3: Test Preparation ---------------- */
+        function ScreenPrep({ onNavigate }) {
+            const tests = [
+                { icon: 'fa-child-reaching', title: '유연성 측정', desc: '앉아 윗몸 굽히기' },
+                { icon: 'fa-stopwatch', title: '근지구력 측정', desc: '플랭크 버티기' },
+                { icon: 'fa-chair', title: '하체 근력 측정', desc: '월 시트 (벽 기대고 앉기)' },
+                { icon: 'fa-shoe-prints', title: '심폐지구력 측정', desc: '3분 스텝 테스트 (제자리 걷기)' }
+            ];
+
+            return (
+                <div className="flex flex-col min-h-screen p-6 pt-14 bg-gray-50">
+                    <button onClick={() => onNavigate('Profile')} className="mb-6 w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-600 shadow-sm border border-gray-100">
+                        <i className="fa-solid fa-arrow-left"></i>
+                    </button>
+                    
+                    <div className="bg-white p-6 rounded-3xl shadow-sm mb-6 border border-gray-100">
+                        <h2 className="text-2xl font-bold mb-2 text-gray-800 leading-snug">오늘 진행할<br/>4가지 테스트입니다</h2>
+                        <div className="flex items-center text-blue-600 font-bold mt-3 bg-blue-50 inline-block px-3 py-1.5 rounded-lg text-sm">
+                            <i className="fa-regular fa-clock mr-2"></i> 총 예상 소요시간: 약 10분
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-3 flex-1 relative">
+                        {/* Timeline Line */}
+                        <div className="absolute left-[35px] top-8 bottom-8 w-0.5 bg-gray-200 z-0"></div>
+                        
+                        {tests.map((test, index) => (
+                            <div key={index} className="p-4 bg-white border border-gray-100 rounded-2xl flex items-center shadow-sm relative z-10">
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mr-4 shadow-sm border-2 border-white">
+                                    <span className="font-bold">{index + 1}</span>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-bold text-gray-800 mb-0.5 text-sm">{test.title}</p>
+                                    <p className="text-xs text-gray-500">{test.desc}</p>
+                                </div>
+                                <i className={`fa-solid ${test.icon} text-gray-300 text-xl w-6 text-center`}></i>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    <div className="mt-8 pt-4 pb-2 bg-gradient-to-t from-gray-50">
+                        <button onClick={() => onNavigate('TestAction')} className="w-full bg-blue-600 text-white py-4.5 px-4 rounded-2xl font-bold text-lg shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)] active:scale-95 transition-transform flex justify-center items-center h-14">
+                            측정 시작하기 <i className="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        /* ---------------- Screen 4: Test Action (Plank) ---------------- */
+        function ScreenTestAction({ onNavigate }) {
+            const [time, setTime] = useState(0);
+            const [isRunning, setIsRunning] = useState(false);
+            const [isFinished, setIsFinished] = useState(false);
+
+            useEffect(() => {
+                let interval;
+                if (isRunning) {
+                    interval = setInterval(() => { setTime(prev => prev + 1); }, 1000);
+                }
+                return () => clearInterval(interval);
+            }, [isRunning]);
+
+            const formatTime = (seconds) => {
+                const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const s = (seconds % 60).toString().padStart(2, '0');
+                return `${m}:${s}`;
+            };
+
+            return (
+                <div className="flex flex-col min-h-screen p-6 pt-14 text-center bg-gray-900 text-white">
+                    <div className="flex justify-between items-center mb-8">
+                        <button onClick={() => onNavigate('Prep')} className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-gray-400">
+                            <i className="fa-solid fa-xmark"></i>
+                        </button>
+                        <div className="bg-gray-800 px-4 py-1.5 rounded-full flex items-center space-x-1 border border-gray-700">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+                            <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+                        </div>
+                        <div className="w-10"></div>
+                    </div>
+                    
+                    <div className="mb-8">
+                        <span className="text-blue-400 font-bold text-sm tracking-widest mb-2 block">STEP 2. 근지구력 측정</span>
+                        <h2 className="text-3xl font-bold">플랭크 버티기</h2>
+                    </div>
+                    
+                    <div className="flex-1 flex flex-col justify-center items-center relative w-full max-w-sm mx-auto">
+                        {/* Placeholder Video/GIF */}
+                        <div className="w-full h-56 bg-gray-800 border border-gray-700 rounded-3xl mb-8 flex items-center justify-center relative overflow-hidden shadow-inner">
+                            <i className="fa-solid fa-play text-gray-600 text-5xl absolute z-10"></i>
+                            <img src="https://images.unsplash.com/photo-1566241440091-ec10de8db2e1?auto=format&fit=crop&q=80&w=400&h=250" className="w-full h-full object-cover opacity-30" alt="plank"/>
+                            <div className="absolute top-4 left-4 bg-black/60 px-2 py-1 rounded text-xs font-bold text-gray-300 flex items-center">
+                                <i className="fa-solid fa-video mr-1"></i> 올바른 자세 가이드
+                            </div>
+                        </div>
+                        
+                        <div className="text-[5rem] font-mono font-bold mb-4 tracking-tighter text-blue-50 leading-none">{formatTime(time)}</div>
+                        <p className="text-gray-400 text-sm mb-8">바른 자세가 무너질 때까지 측정합니다.</p>
+                    </div>
+                    
+                    {!isFinished ? (
+                        <div className="flex space-x-4 mb-4">
+                            {!isRunning ? (
+                                <button onClick={() => setIsRunning(true)} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-2xl font-bold text-xl active:scale-95 transition-all shadow-lg shadow-blue-600/30">
+                                    {time === 0 ? '측정 시작' : '계속하기'}
+                                </button>
+                            ) : (
+                                <button onClick={() => setIsRunning(false)} className="flex-1 bg-gray-700 text-white py-5 rounded-2xl font-bold text-xl active:scale-95 transition-all">
+                                    일시정지
+                                </button>
+                            )}
+                            {time > 0 && !isRunning && (
+                                <button onClick={() => setIsFinished(true)} className="flex-1 bg-green-500 text-white py-5 rounded-2xl font-bold text-xl active:scale-95 transition-all shadow-lg shadow-green-500/30">
+                                    기록 완료
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="bg-gray-800 p-6 rounded-3xl animate-slide-up mb-4 border border-gray-700">
+                            <h3 className="text-lg font-bold mb-4 text-gray-200">기록을 확정해주세요</h3>
+                            <div className="flex items-center justify-center space-x-2 mb-6">
+                                <input type="number" value={Math.floor(time/60)} className="w-20 text-center p-3 bg-gray-900 border border-gray-600 rounded-xl text-2xl font-bold text-white outline-none" readOnly/>
+                                <span className="text-gray-400">분</span>
+                                <input type="number" value={time%60} className="w-20 text-center p-3 bg-gray-900 border border-gray-600 rounded-xl text-2xl font-bold text-white outline-none" readOnly/>
+                                <span className="text-gray-400">초</span>
+                            </div>
+                            <button onClick={() => onNavigate('Result')} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform">
+                                전체 결과 보기 (테스트용)
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        /* ---------------- Screen 5: Result Report ---------------- */
+        function ScreenResult({ onNavigate }) {
+            const chartRef = useRef(null);
+            
+            useEffect(() => {
+                if (chartRef.current) {
+                    new Chart(chartRef.current, {
+                        type: 'radar',
+                        data: {
+                            labels: ['유연성', '근지구력', '하체근력', '심폐지구력', '체성분'],
+                            datasets: [{
+                                label: '나의 체력',
+                                data: [80, 45, 90, 60, 75],
+                                backgroundColor: 'rgba(37, 99, 235, 0.4)',
+                                borderColor: 'rgba(37, 99, 235, 1)',
+                                pointBackgroundColor: 'rgba(37, 99, 235, 1)',
+                                pointBorderColor: '#fff',
+                                pointHoverBackgroundColor: '#fff',
+                                pointHoverBorderColor: 'rgba(37, 99, 235, 1)',
+                                borderWidth: 3,
+                            }, {
+                                label: '동일 연령대 평균',
+                                data: [65, 65, 65, 65, 65],
+                                backgroundColor: 'transparent',
+                                borderColor: 'rgba(156, 163, 175, 0.5)',
+                                pointBackgroundColor: 'rgba(156, 163, 175, 0.5)',
+                                borderDash: [5, 5],
+                                borderWidth: 1,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: { 
+                                r: { 
+                                    min: 0, max: 100, 
+                                    ticks: { display: false, stepSize: 20 },
+                                    grid: { color: 'rgba(0,0,0,0.05)' },
+                                    angleLines: { color: 'rgba(0,0,0,0.05)' },
+                                    pointLabels: { font: { size: 12, family: 'sans-serif', weight: 'bold' }, color: '#4b5563' }
+                                } 
+                            },
+                            plugins: { 
+                                legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: {size: 11} } },
+                                tooltip: { enabled: false }
+                            }
+                        }
+                    });
+                }
+            }, []);
+
+            return (
+                <div className="flex flex-col min-h-screen bg-gray-50 pb-12">
+                    <div className="bg-blue-600 p-6 pt-14 text-white text-center rounded-b-[40px] shadow-sm relative overflow-hidden">
+                        {/* Background Deco */}
+                        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                            <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-white"></div>
+                            <div className="absolute top-20 -right-20 w-60 h-60 rounded-full bg-white"></div>
+                        </div>
+                        
+                        <button onClick={() => onNavigate('Home')} className="absolute left-6 top-14 w-8 h-8 flex items-center justify-center text-white z-10 opacity-80 hover:opacity-100">
+                            <i className="fa-solid fa-xmark text-2xl"></i>
+                        </button>
+                        
+                        <div className="relative z-10">
+                            <div className="mt-2 mb-3 text-5xl">🎉</div>
+                            <h2 className="text-2xl font-bold mb-1">수고하셨습니다!</h2>
+                            <p className="opacity-90 mb-6 text-sm">당신의 종합 홈 체력 측정 결과</p>
+                            <div className="inline-block bg-white text-blue-600 text-3xl font-black px-10 py-3.5 rounded-2xl shadow-xl mb-4 tracking-tight">
+                                2 등급
+                            </div>
+                            <p className="text-xs opacity-70 mt-2">상위 25% 수준의 훌륭한 체력입니다</p>
+                        </div>
+                    </div>
+                    
+                    <div className="p-6 -mt-4">
+                        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] mb-6 border border-gray-100 relative">
+                            <h3 className="font-bold text-gray-800 mb-6 flex items-center">
+                                <i className="fa-solid fa-chart-pie text-blue-500 mr-2"></i> 체력 밸런스 분석
+                            </h3>
+                            <div className="h-64 w-full">
+                                <canvas ref={chartRef}></canvas>
+                            </div>
+                        </div>
+                        
+                        <h3 className="font-bold text-gray-800 mb-4 px-2 flex items-center">
+                            <i className="fa-solid fa-wand-magic-sparkles text-yellow-500 mr-2"></i> AI 맞춤형 솔루션
+                        </h3>
+                        
+                        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] border border-gray-100">
+                            <p className="text-gray-700 leading-relaxed mb-6 text-sm">
+                                하체 근력은 매우 우수하지만, 상대적으로 <span className="font-bold text-blue-600">근지구력</span>과 <span className="font-bold text-blue-600">심폐지구력</span>이 조금 부족해요. 
+                                코어를 강화하고 심박수를 높이는 홈트레이닝을 추천합니다.
+                            </p>
+                            
+                            <div className="border-2 border-blue-100 rounded-2xl p-4 bg-gradient-to-r from-blue-50 to-white flex items-center justify-between cursor-pointer active:scale-95 transition-transform group">
+                                <div className="flex-1 pr-4">
+                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-md mb-2 inline-block">추천 루틴</span>
+                                    <p className="font-bold text-gray-800 text-sm">심폐지구력 향상 10분 홈트</p>
+                                    <p className="text-xs text-gray-500 mt-1 truncate">마운틴 클라이머, 슬로우 버피</p>
+                                </div>
+                                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md group-hover:bg-blue-700 transition-colors">
+                                    <i className="fa-solid fa-play ml-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

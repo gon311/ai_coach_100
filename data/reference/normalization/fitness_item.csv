@@ -1,0 +1,10 @@
+﻿item_code,item_name,factor_code,age_group_code,unit,direction,home_capable,required_equipment,percentile_eligible,비고
+BMI,체질량지수,신체조성,"ADULT,SENIOR",kg/m2,OPTIMAL_RANGE,EXACT,"체중계, 신장계/줄자",FALSE(항상),백분위 대상 아님. 구간판정(저체중/정상/과체중/비만)으로 별도 처리
+FLEX_SIT_REACH,앉아윗몸앞으로굽히기,유연성,"ADULT,SENIOR",cm,HIGHER_BETTER,EXACT,"자(30cm+), 상자 또는 계단",TRUE,영점(발끝=0cm) 정의 통일 필수
+MUSC_END_SITUP,교차윗몸일으키기,근지구력,ADULT,회,HIGHER_BETTER,EXACT,"매트, 공단 측정음원",TRUE,
+POWER_LONGJUMP,제자리멀리뛰기,순발력,ADULT,cm,HIGHER_BETTER,EXACT,"줄자, 미끄럼방지 바닥",TRUE,
+LOWER_CHAIRSTAND,의자에앉았다일어서기,하지근기능,SENIOR,회,HIGHER_BETTER,EXACT,"의자(약43cm, 팔걸이 없음), 타이머",TRUE,
+CARDIO_2MINSTEP,2분제자리걷기,심폐지구력,SENIOR,회,HIGHER_BETTER,EXACT,"타이머, 벽면 높이 표식",TRUE,
+AGIL_3M_TARGET,3m표적돌아오기,민첩·동적평형성,SENIOR,초,LOWER_BETTER,EXACT,"의자, 표식(콘), 스톱워치",TRUE,편향 방향·크기 미확정 — 구간폭 TBD(별도 파일 참고)
+GRIP_REL_PCT,상대악력,근력,"ADULT,SENIOR",%,HIGHER_BETTER,CONDITIONAL,디지털 악력계,TRUE(기구 보유시),선택 모듈
+GRIP_ABS_KG,절대악력,근력(어르신 등급판정용),SENIOR,kg,HIGHER_BETTER,CONDITIONAL,디지털 악력계,TRUE(기구 보유시),선택 모듈. 규준은 2024년 이후 데이터만 사용(norm_version=2024H1_POOLED)

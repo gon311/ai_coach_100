@@ -1,0 +1,10 @@
+﻿item_code,interval_width_pct,status
+FLEX_SIT_REACH,10.0,확정(가정치)
+MUSC_END_SITUP,7.0,확정(가정치)
+CARDIO_2MINSTEP,7.0,확정(가정치)
+POWER_LONGJUMP,5.0,확정(가정치)
+LOWER_CHAIRSTAND,5.0,확정(가정치)
+AGIL_3M_TARGET,,미정 — 편향 판단 후 확정 필요
+GRIP_REL_PCT,,미정 — 팀 논의 필요(기구 사용 항목이라 오차 성격 다를 수 있음)
+GRIP_ABS_KG,,미정 — 상동
+BMI,,해당없음 — 구간표시 대상 아님(점추정+카테고리 판정)

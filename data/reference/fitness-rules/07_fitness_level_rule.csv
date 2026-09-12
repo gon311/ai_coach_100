@@ -1,0 +1,6 @@
+﻿level_code,level_name,percentile_min,percentile_max
+5,최상위,80,100
+4,상위,60,79.999
+3,중위,40,59.999
+2,하위,20,39.999
+1,최하위,0,19.999
