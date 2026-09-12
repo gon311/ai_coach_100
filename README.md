@@ -1,19 +1,23 @@
 # AI 체력 코치
 
-국민체력100 공공데이터를 바탕으로 또래 백분위와 근거 기반 운동 추천을 제공하는 반응형 웹 서비스입니다.
+국민체력100 공공데이터를 바탕으로 또래 백분위와 근거 기반 운동 추천을 제공하는 반응형 웹 서비스입니다. 현재는 기존 로컬 실행 패키지를 재구성하는 단계이며, 모델과 RAG 인덱스는 별도 자산이 필요합니다.
 
 ## 저장소 구성
 
-- `apps/web`: 현재 시연용 프론트엔드
-- `apps/api`: Python 기반 코칭·RAG·측정 로직과 테스트
+- `apps/web`: P3 반응형 시연 프론트엔드
+- `apps/api`: Python 기반 코칭·RAG·측정 로직, 테스트, 서버 기동 스크립트와 프롬프트
 - `data/reference`: 서비스가 참조하는 소형 규칙표·정규화 결과·영상 메타데이터
-- `data/scripts`: 원본 공공데이터를 정제하고 인덱스를 생성하는 스크립트
+- `data/scripts`: RAG 원문 DB 생성 노트북
 - `docs`: 기획, 회의, 설계 기준, EDA, 공모전 자료
-- `evaluation`: RAG 및 서비스 품질 평가 계획과 결과
+- `evaluation`: 평가 계획 v1~v3와 검토자 배포 자료
 
 ## 시작 전 확인
 
 이 저장소에는 대용량 원본 공공데이터, 로컬 LLM 모델, Chroma 인덱스, 사용자 DB를 넣지 않습니다. 각각의 획득·생성 절차는 [data/README.md](data/README.md)에 기록합니다.
+
+## 실행 환경
+
+Python 3.10~3.12 환경에서 `pip install -r apps/api/requirements.txt`로 백엔드 의존성을 설치합니다. 로컬 Qwen3 서버와 대용량 RAG 자산을 별도로 준비한 뒤 `apps/api/scripts/START_AI_FITNESS.sh` 또는 `.ps1`로 기동합니다. 환경변수 예시는 `.env.example`을 참고합니다.
 
 ## 현재 포함 범위
 

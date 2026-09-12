@@ -1,0 +1,19 @@
+{
+  "version": "kdca-2022-adult-bmi",
+  "scope": "만 20세 이상 성인만 자동 분류. 청소년·유소년은 성인 고정 구간으로 분류하지 않음.",
+  "formula": "BMI = 체중(kg) / (키(m) × 키(m))",
+  "categories": [
+    {"label": "저체중", "minimum": null, "maximum_exclusive": 18.5},
+    {"label": "정상", "minimum": 18.5, "maximum_exclusive": 23.0},
+    {"label": "비만전단계비만", "minimum": 23.0, "maximum_exclusive": 25.0},
+    {"label": "1단계비만", "minimum": 25.0, "maximum_exclusive": 30.0},
+    {"label": "2단계비만", "minimum": 30.0, "maximum_exclusive": 35.0},
+    {"label": "3단계비만", "minimum": 35.0, "maximum_exclusive": null}
+  ],
+  "source": {
+    "title": "질병관리청 국가건강정보포털 · 대한비만학회 기준(2022)",
+    "url": "https://health.kdca.go.kr/healthinfo/biz/health/gnrlzHealthInfo/gnrlzHealthInfo/gnrlzHealthInfoView.do?cntnts_sn=6774",
+    "checked_at": "2026-09-04"
+  },
+  "notice": "BMI는 건강 상태를 판단하거나 운동 치료 효과를 보장하는 값이 아닙니다."
+}

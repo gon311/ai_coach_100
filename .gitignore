@@ -29,6 +29,7 @@ runtime/
 *.duckdb
 *.db
 *.sqlite
+!apps/api/artifacts/fitness_percentile.db
 
 # Operating-system and editor metadata
 .DS_Store

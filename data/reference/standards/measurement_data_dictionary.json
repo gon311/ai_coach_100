@@ -1,0 +1,54 @@
+{
+  "version": "3.0.0-final",
+  "reviewed_at": "2026-09-04",
+  "display_name": "홈 체력측정",
+  "result_label": "보유 센터 측정 원시기록 기준 상위 비율",
+  "scope": "국민체력100 보유 센터 측정 원시기록을 성별·연령대별로 사전 집계한 비교 규준",
+  "policy": {
+    "input_is_home_measurement": true,
+    "comparison_source_is_center_raw_records": true,
+    "official_certification_grade": false,
+    "official_kspo_percentile": false,
+    "higher_performance_is_lower_top_percent": true,
+    "minimum_valid_sample": 200,
+    "insufficient_sample_handling": "DB에는 유지하지만 화면에는 비교 가능한 표본 부족으로 표시",
+    "excluded_from_percentile_pipeline": ["BMI", "허리둘레", "혈압"]
+  },
+  "norm_database": {
+    "path": "center_percentile_norms.sqlite",
+    "norm_version": "center-raw-v1",
+    "source_period": "2011-01~2026-08",
+    "integrity": "ok",
+    "catalog_measure_count": 13,
+    "ready_measure_count": 6,
+    "norm_row_count": 52049
+  },
+  "active_home_fields": [
+    {"code": "FLEX_SIT_REACH", "name": "앉아 윗몸 앞으로 굽히기", "unit": "cm", "source_field": "item_f012", "direction": "higher_is_better", "age_scope": "유소년·청소년·성인·어르신", "norm_rows": 23286},
+    {"code": "MUSC_END_SITUP", "name": "교차 윗몸 일으키기", "unit": "회", "source_field": "item_f019", "direction": "higher_is_better", "age_scope": "성인", "norm_rows": 1782},
+    {"code": "POWER_LONGJUMP", "name": "제자리 멀리뛰기", "unit": "cm", "source_field": "item_f022", "direction": "higher_is_better", "age_scope": "유소년·청소년·성인", "norm_rows": 6112},
+    {"code": "LOWER_CHAIRSTAND", "name": "의자에 앉았다 일어서기", "unit": "회", "source_field": "item_f023", "direction": "higher_is_better", "age_scope": "어르신", "norm_rows": 596},
+    {"code": "CARDIO_2MINSTEP", "name": "2분 제자리걷기", "unit": "회", "source_field": "item_f025", "direction": "higher_is_better", "age_scope": "어르신", "norm_rows": 1951},
+    {"code": "AGILITY_3M", "name": "3m 표적 돌아오기", "unit": "초", "source_field": "item_f026", "direction": "lower_is_better", "age_scope": "어르신", "norm_rows": 18322}
+  ],
+  "age_groups": [
+    {"name": "유소년", "ages": "11~12", "fields": ["FLEX_SIT_REACH", "POWER_LONGJUMP"]},
+    {"name": "청소년", "ages": "13~18", "fields": ["FLEX_SIT_REACH", "POWER_LONGJUMP"]},
+    {"name": "성인", "ages": "19~64", "fields": ["FLEX_SIT_REACH", "MUSC_END_SITUP", "POWER_LONGJUMP"]},
+    {"name": "어르신", "ages": "65 이상", "fields": ["FLEX_SIT_REACH", "LOWER_CHAIRSTAND", "CARDIO_2MINSTEP", "AGILITY_3M"]}
+  ],
+  "unsupported_age_groups": [
+    {"ages": "10세 이하", "reason": "현재 확정한 센터 원시기록 규준 매핑에 비교 가능한 연령 셀이 없음"}
+  ],
+  "optional_unreleased_fields": [
+    {"code": "GRIP_RELATIVE", "name": "상대악력"},
+    {"code": "GRIP_ABSOLUTE", "name": "절대악력"}
+  ],
+  "expansion_unreleased_fields": [
+    {"code": "CARDIO_20M_SHUTTLE", "name": "왕복오래달리기"},
+    {"code": "CARDIO_6MIN_WALK", "name": "6분걷기"},
+    {"code": "AGILITY_10M_SHUTTLE", "name": "10m 왕복달리기"},
+    {"code": "REACTION_TIME", "name": "반응시간"},
+    {"code": "FIGURE_8_WALK", "name": "8자보행"}
+  ]
+}

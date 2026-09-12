@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 import secrets
 import sqlite3
 from pathlib import Path
@@ -14,13 +15,15 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 
-ROOT = Path(__file__).resolve().parents[2]
-NORM_DB = ROOT / "fitness_backend_package" / "fitness_percentile.db"
-USER_DB = ROOT / "fitness_user_records.db"
-MEASURE_VIDEO_JSON = ROOT / "data" / "국민체력100 동영상 정보" / "02_체력인증측정방법.json"
-ALL_VIDEO_JSON = ROOT / "data" / "국민체력100 동영상 정보" / "07_동영상전체목록.json"
-STANDARD_VIDEO_JSON = ROOT / "data" / "국민체력100 동영상 정보" / "05_생애주기별표준운동.json"
-ROUTINE_VIDEO_JSON = ROOT / "data" / "국민체력100 동영상 정보" / "06_목적별루틴운동.json"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[3]
+VIDEO_DIR = REPO_ROOT / "data" / "reference" / "videos"
+NORM_DB = Path(os.environ.get("AI_FITNESS_NORM_DB", str(PROJECT_ROOT / "artifacts" / "fitness_percentile.db")))
+USER_DB = Path(os.environ.get("AI_FITNESS_USER_DB", str(PROJECT_ROOT / "runtime" / "fitness_user_records.db")))
+MEASURE_VIDEO_JSON = VIDEO_DIR / "02_체력인증측정방법.json"
+ALL_VIDEO_JSON = VIDEO_DIR / "07_동영상전체목록.json"
+STANDARD_VIDEO_JSON = VIDEO_DIR / "05_생애주기별표준운동.json"
+ROUTINE_VIDEO_JSON = VIDEO_DIR / "06_목적별루틴운동.json"
 router = APIRouter(prefix="/api/mvp", tags=["fitness-mvp"])
 
 
