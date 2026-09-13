@@ -225,6 +225,15 @@ fetch('/api/fitness/analyze', {
 
 ---
 
+## 미해결 불일치
+
+| 프론트엔드 호출 | 서버 실제 상태 | 영향 |
+|---|---|---|
+| `/api/report-summary` | `/api/mvp/report-summary`만 존재 | 리포트 요약 요청이 404 |
+| `/api/top-videos/{category}` | 라우트 없음 | 영상 추천 요청이 404 |
+
+프론트엔드 URL 수정 또는 백엔드 alias 라우트 추가 중 어느 방식으로 맞출지 백엔드 최신본 기준으로 결정한다.
+
 ## 7. 필요 기술 스택
 
 | 구분 | 기술 | 용도 |

@@ -22,6 +22,7 @@ from video_audit_groups import organize as organize_video_audit
 from exercise_labels import display_name, exercise_stages
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 
@@ -58,6 +59,8 @@ from age_bmi_recommendations import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[3]
+WEB_DIR = Path(os.environ.get("AI_FITNESS_WEB_DIR", str(REPO_ROOT / "apps" / "web")))
 FRONTEND_FILE = Path(
     os.environ.get(
         "AI_FITNESS_FRONTEND_FILE",
@@ -2106,6 +2109,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(fitness_mvp_router)
+if (WEB_DIR / "css").is_dir():
+    app.mount("/css", StaticFiles(directory=WEB_DIR / "css"), name="css")
+if (WEB_DIR / "js").is_dir():
+    app.mount("/js", StaticFiles(directory=WEB_DIR / "js"), name="js")
 
 
 @app.get("/", response_class=HTMLResponse)

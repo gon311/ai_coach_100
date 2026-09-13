@@ -23,6 +23,7 @@ data/raw/
 models/
 artifacts/
 !apps/api/artifacts/
+apps/api/artifacts/*
 runtime/
 *.zip
 *.gguf
