@@ -4,6 +4,8 @@
 
 ## 저장소 구성
 
+팀원용 경로별 안내는 [저장소 구조 안내](docs/REPOSITORY_STRUCTURE.md)를 참고합니다.
+
 - `apps/web`: P3 반응형 시연 프론트엔드
 - `apps/api`: Python 기반 코칭·RAG·측정 로직, 테스트, 서버 기동 스크립트와 프롬프트
 - `apps/api/artifacts`: 백분위 조회용 공개 규준 DB (그 외 생성물은 Git 제외)
