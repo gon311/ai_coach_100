@@ -1,7 +1,10 @@
 # AI 체력 코치 — Backend API 명세서
 
-> 프론트엔드와 백엔드 통신을 위한 REST API 명세입니다.
-> 현재 프론트엔드는 Mock Data로 동작하며, 백엔드 완성 시 아래 API로 교체합니다.
+> **문서 성격 — 먼저 읽을 것.** 본 문서는 2차 회의 시점에 프론트엔드 담당자가 백엔드에 요청한 **설계 초안**이며, 현재 구현과 다릅니다.
+> §1~§3에 명세된 엔드포인트 3개(`POST /api/fitness/analyze`, `POST /api/coaching`, `GET /api/videos`)는 **아직 구현되지 않았습니다.**
+> 아래 Base URL(8000)과 §7 기술 스택도 현재 구현과 다릅니다 — 실제 서버는 8501 포트, llama.cpp Qwen3 로컬 모델과 chromadb 직접 호출을 씁니다.
+>
+> **실제로 제공되는 라우트는 §8, 프론트엔드와의 불일치는 §9를 보십시오.** §1~§7은 요청 사항의 이력으로 보존합니다.
 
 ---
 
@@ -225,15 +228,6 @@ fetch('/api/fitness/analyze', {
 
 ---
 
-## 미해결 불일치
-
-| 프론트엔드 호출 | 서버 실제 상태 | 영향 |
-|---|---|---|
-| `/api/report-summary` | `/api/mvp/report-summary`만 존재 | 리포트 요약 요청이 404 |
-| `/api/top-videos/{category}` | 라우트 없음 | 영상 추천 요청이 404 |
-
-프론트엔드 URL 수정 또는 백엔드 alias 라우트 추가 중 어느 방식으로 맞출지 백엔드 최신본 기준으로 결정한다.
-
 ## 7. 필요 기술 스택
 
 | 구분 | 기술 | 용도 |
@@ -245,3 +239,73 @@ fetch('/api/fitness/analyze', {
 | 영상 API | 공공데이터포털 동영상 API | 운동 영상 메타데이터 |
 | 데이터 분석 | Pandas + NumPy | 체력 통계 분석 |
 | CORS | FastAPI CORSMiddleware | 프론트엔드 접근 허용 |
+
+> §7의 스택은 요청 초안 기준이다. 현재 구현은 LangChain·OpenAI·Gemini를 쓰지 않고 llama.cpp(Qwen3-4B-Q4_K_M) 로컬 서버와 chromadb를 직접 호출하며, 동일 출처로 서빙하므로 CORSMiddleware도 적용하지 않는다.
+
+---
+
+## 8. 실제 구현 라우트 (2026-09-13 기준)
+
+`apps/api/src/fitness_web_server.py`와 `apps/api/src/fitness_mvp.py`에서 추출한 현행 라우트다. **동작 기준은 §1~§3이 아니라 이 표다.**
+
+### 8-1. fitness_web_server.py — `@app`
+
+| 메서드 | 경로 | 핸들러 |
+|---|---|---|
+| GET | `/` | `index` — `AI_FITNESS_FRONTEND_FILE`이 가리키는 HTML 반환 |
+| GET | `/video-player` | `video_player` |
+| GET | `/api/health` | `health` |
+| GET | `/api/center-percentile-status` | `center_percentile_status` |
+| GET | `/api/age-bmi-recommendation-status` | `age_bmi_recommendation_status` |
+| GET | `/api/center-percentile-inputs` | `center_percentile_inputs` |
+| POST | `/api/center-percentiles` | `center_percentiles` |
+| GET | `/api/options` | `options` |
+| POST | `/api/options` | `filtered_options` |
+| GET | `/api/video-link-audit` | `video_link_audit` |
+| POST | `/api/chat` | `chat` |
+| POST | `/api/coach` | `coach` |
+
+### 8-2. fitness_mvp.py — `@router` (prefix `/api/mvp`)
+
+| 메서드 | 경로 | 핸들러 |
+|---|---|---|
+| POST | `/api/mvp/login` | `login` |
+| POST | `/api/mvp/signup` | `signup` |
+| GET | `/api/mvp/profile` | `profile` 조회 |
+| PUT | `/api/mvp/profile` | `profile` 수정 |
+| GET | `/api/mvp/catalog` | `catalog` |
+| POST | `/api/mvp/evaluate` | `evaluate` |
+| GET | `/api/mvp/history` | `history` |
+| POST | `/api/mvp/chat` | `chat` |
+| POST | `/api/mvp/report-summary` | `report_summary` |
+| GET | `/api/mvp/recommendation-videos/{item_code}` | `recommendation_videos` |
+
+`prefix="/api/mvp"`는 `fitness_mvp.py`의 `APIRouter` 선언에 있다. 이 접두사 때문에 프론트엔드가 `/api/report-summary`로 호출하면 404가 난다(§9 참조).
+
+### 8-3. 정적 자원 마운트
+
+| 마운트 | 대상 디렉터리 | 조건 |
+|---|---|---|
+| `/css` | `apps/web/css` | 디렉터리 존재 시에만 마운트 |
+| `/js` | `apps/web/js` | 디렉터리 존재 시에만 마운트 |
+
+기본 위치는 저장소 루트의 `apps/web`이며 `AI_FITNESS_WEB_DIR`로 변경한다. 디렉터리가 없으면 마운트를 조용히 건너뛰므로, 정적 자원이 404라면 이 환경변수부터 확인한다.
+
+---
+
+## 9. 미해결 불일치
+
+프론트엔드(`apps/web`, frontend_v3)가 실제로 호출하는 6개와 서버 라우트를 대조한 결과다.
+
+| 프론트엔드 호출 | 호출부 | 서버 실제 상태 | 판정 |
+|---|---|---|---|
+| `/api/health` | `js/app.js` | `GET /api/health` | 일치 |
+| `/api/coach` | `js/app.js` | `POST /api/coach` | 일치 |
+| `/api/chat` | `js/app.js` | `POST /api/chat` | 일치 |
+| `/api/center-percentiles` | `js/services/percentile-service.js` | `POST /api/center-percentiles` | 일치 |
+| `/api/report-summary` | `js/services/report-service.js` | **`/api/mvp/report-summary`만 존재** | **404** |
+| `/api/top-videos/{category}` | `js/services/video-service.js` | **라우트 없음** | **404** |
+
+두 서비스 모두 실패 시 `'*-api-unavailable'` 예외를 던지고 호출부에서 잡으므로 화면이 죽지는 않는다. 대신 **리포트 요약과 영상 추천이 조용히 빈 상태**가 된다.
+
+**해결 방향 미결정.** 프론트엔드 URL을 고칠지, 백엔드에 alias 라우트를 추가할지 백엔드 최신본을 받은 뒤 정한다. 결정 시 이 절을 갱신한다.

@@ -24,6 +24,8 @@ models/
 artifacts/
 !apps/api/artifacts/
 apps/api/artifacts/*
+apps/api/source_data/*
+!apps/api/source_data/KS_MRFN_AGE_ACCTO_RECOMMEND_SPORTS_INFO_202607.csv
 runtime/
 *.zip
 *.gguf
