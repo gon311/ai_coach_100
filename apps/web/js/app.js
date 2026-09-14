@@ -159,6 +159,13 @@ const App = {
     return {
       page: "landing",
       form: { gender: "", age: "", height: "", weight: "" },
+      authView: 'login',
+      loginForm: { identifier: '', password: '' },
+      signupForm: {
+        identifier: '', password: '', passwordConfirm: '',
+        gender: '', age: '', height: '', weight: ''
+      },
+      authNotice: '',
       route: null,
       parqAnswers: Array(7).fill(null),
       parqQuestionIndex: 0,
@@ -219,6 +226,27 @@ const App = {
     reportItems() { return this.route === "CENTER" ? this.centerMeasuredItems : this.homeMeasuredItems; },
     reportValues() { return this.route === "CENTER" ? this.centerValues : this.homeValues; },
     basicInfoValid() { const age=Number(this.form.age),height=Number(this.form.height),weight=Number(this.form.weight);return Boolean(this.form.gender)&&Number.isFinite(age)&&age>=19&&Number.isFinite(height)&&height>0&&Number.isFinite(weight)&&weight>0; },
+    loginFormValid() {
+      return Boolean(this.loginForm.identifier.trim() && this.loginForm.password);
+    },
+    signupPasswordMismatch() {
+      return Boolean(this.signupForm.passwordConfirm) &&
+        this.signupForm.password !== this.signupForm.passwordConfirm;
+    },
+    signupFormValid() {
+      const age = Number(this.signupForm.age);
+      const height = Number(this.signupForm.height);
+      const weight = Number(this.signupForm.weight);
+      return Boolean(
+        this.signupForm.identifier.trim() &&
+        this.signupForm.password &&
+        this.signupForm.password === this.signupForm.passwordConfirm &&
+        this.signupForm.gender &&
+        Number.isFinite(age) && age > 0 &&
+        Number.isFinite(height) && height > 0 &&
+        Number.isFinite(weight) && weight > 0
+      );
+    },
     bmiValue() { const height=Number(this.form.height)/100,weight=Number(this.form.weight);return height>0&&weight>0?(weight/(height*height)).toFixed(1):''; },
     parqAnswered() { return this.parqAnswers.every(a => a !== null); },
     currentParqQuestion() { return this.parqQuestions[this.parqQuestionIndex] || ''; },
@@ -281,6 +309,14 @@ const App = {
       });
     },
     hasAverageData() { return this.radarAxes.some(axis => axis.hasAverageData); },
+    radarAccessibleDescription() {
+      return this.radarAxes.map(axis => {
+        const reference = this.ageGroup === 'senior' && axis.valueCode === 'chair_sit_and_reach_3m'
+          ? ', 참고값, 백분위 미제공'
+          : '';
+        return `${axis.label} ${axis.measured ? axis.raw : '미측정'}${reference}`;
+      }).join('; ');
+    },
     radarUserPolygonPoints() { const values=this.radarAxes.map(axis=>axis.radarDisplayValue);return values.length&&values.every(Number.isFinite)?this.radarPoints(values):''; },
     radarUserSegments() { const values=this.radarAxes.map(axis=>axis.radarDisplayValue);return measuredRadarRuns(values).map(run=>this.radarIndexedPoints(values,run)); },
     radarAveragePolygonPoints() { const values=this.radarAxes.map(axis=>axis.averageRadarDisplayValue);return values.length&&values.every(Number.isFinite)?this.radarPoints(values):''; },
@@ -308,9 +344,21 @@ const App = {
   },
   methods: {
     go(next) { this.page = next; window.scrollTo(0, 0); },
+    showAuthUnavailable(kind) {
+      if (kind === 'signup' && this.signupForm.password !== this.signupForm.passwordConfirm) {
+        this.authNotice = '비밀번호가 일치하지 않습니다.';
+        return;
+      }
+      this.authNotice = '현재 인증 서버가 연결되지 않아 이 기능을 사용할 수 없습니다.';
+    },
+    continueAsGuest() {
+      this.authNotice = '';
+      this.go('basicInfo');
+    },
     handleEscape(event) {
       if(event.key!=='Escape')return;
-      this.videoSidebarOpen=false;this.chatSidebarOpen=false;this.guideSidebarOpen=false;this.measurementVideoSidebarOpen=false;
+      if(this.chatSidebarOpen){this.closeChat();return;}
+      this.videoSidebarOpen=false;this.guideSidebarOpen=false;this.measurementVideoSidebarOpen=false;
     },
     toggleGuide(i) { this.openGuideIdx = this.openGuideIdx === i ? -1 : i; },
     measurementVideoFor(item){
@@ -408,7 +456,10 @@ const App = {
       await this.loadWorkoutVideos(category);
     },
     async openChat(){
-      this.videoSidebarOpen=false;this.guideSidebarOpen=false;this.measurementVideoSidebarOpen=false;this.chatSidebarOpen=true;if(this.chatInitialized||this.chatLoading)return;
+      this.videoSidebarOpen=false;this.guideSidebarOpen=false;this.measurementVideoSidebarOpen=false;this.chatSidebarOpen=true;
+      await this.$nextTick();
+      this.$refs.chatInput?.focus();
+      if(this.chatInitialized||this.chatLoading)return;
       this.chatLoading=true;
       const ranked=this.radarAxes.filter(axis=>axis.compared).slice().sort((a,b)=>Number(b.topPercent)-Number(a.topPercent));
       const focus=ranked[0]?.label||'전신 체력';
@@ -419,6 +470,19 @@ const App = {
         const answer=data.answer||{};const intro=typeof answer==='string'?answer:[answer['운동명'],answer['추천이유'],answer['운동방법']].filter(Boolean).join('\n');
         this.chatMessages.push({role:'assistant',content:intro||'측정 결과를 바탕으로 대화 준비가 완료되었습니다. 궁금한 점을 물어보세요.'});this.chatInitialized=true;
       }catch(error){this.chatMessages.push({role:'assistant',content:'하네스 연결 오류: '+String(error.message||error)});}finally{this.chatLoading=false;}
+    },
+    closeChat(){
+      this.chatSidebarOpen=false;
+      this.$nextTick(()=>this.$refs.chatTrigger?.focus());
+    },
+    handleChatDialogKeydown(event){
+      if(event.key==='Escape'){event.preventDefault();this.closeChat();return;}
+      if(event.key!=='Tab')return;
+      const controls=[...event.currentTarget.querySelectorAll('button:not([disabled]),input:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')];
+      if(!controls.length)return;
+      const first=controls[0];const last=controls[controls.length-1];
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
     },
     async sendChat(){
       const message=this.chatInput.trim();if(!message||this.chatLoading||!this.chatInitialized)return;
@@ -446,9 +510,8 @@ const App = {
         <p class="fc-eyebrow">체력코치 AI</p>
         <h1 class="fc-hero-title">내 체력을 직접 확인하고<br/>다음 운동까지 이어가세요.</h1>
         <p class="fc-hero-copy">약 10~15분이면 자가측정을 시작할 수 있어요.</p>
-        <div class="fc-landing-visual" aria-hidden="true">
-          <span class="fc-landing-pulse"></span>
-          <svg viewBox="0 0 120 120" role="presentation"><path d="M29 72c10-9 18-20 23-34m39 34C81 63 73 52 68 38M39 61h42M47 80h26"/><circle cx="60" cy="28" r="8"/></svg>
+        <div class="fc-landing-visual">
+          <img src="./assets/fitness-coach-landing.png" alt="체육관에서 여러 체력 측정 종목에 참여하는 체력코치 캐릭터">
         </div>
         <ul class="fc-value-list" aria-label="서비스 특징">
           <li>자가측정 가능</li>
@@ -461,12 +524,34 @@ const App = {
       <!-- LOGIN -->
       <div class="fc-body fc-page-login" v-if="page==='login'">
         <button class="fc-nav-back" @click="go('landing')">← 이전</button>
-        <span class="fc-badge fc-badge-mock">MOCK — 실제 인증 미연동</span>
-        <h1 class="fc-h1" style="margin-top:12px">로그인</h1>
-        <p class="fc-sub">이번 MVP는 실제 인증 API가 연결되지 않아 로그인 흐름만 시연합니다.</p>
-        <div class="fc-field"><label class="fc-label">아이디</label><input class="fc-input" value="demo_user" readonly /></div>
-        <div class="fc-field"><label class="fc-label">비밀번호</label><input class="fc-input" type="password" value="mockpass" readonly /></div>
-        <button class="fc-btn fc-btn-primary" @click="go('basicInfo')">Mock으로 로그인</button>
+        <h1 class="fc-eyebrow">체력코치 AI</h1>
+        <h2 class="fc-h1">{{ authView === 'login' ? '로그인' : '회원가입' }}</h2>
+        <p class="fc-sub">인증 서버 연결 전에도 비로그인으로 체력 측정을 시작할 수 있어요.</p>
+        <div class="fc-auth-switch" role="group" aria-label="인증 화면 선택">
+          <button type="button" :class="['fc-segment-button', authView==='login' ? 'active':'']" :aria-pressed="authView==='login'" @click="authView='login';authNotice=''">로그인</button>
+          <button type="button" :class="['fc-segment-button', authView==='signup' ? 'active':'']" :aria-pressed="authView==='signup'" @click="authView='signup';authNotice=''">회원가입</button>
+        </div>
+        <form v-if="authView==='login'" class="fc-auth-panel" @submit.prevent="showAuthUnavailable('login')">
+          <div class="fc-field"><label class="fc-label" for="login-identifier">아이디</label><input id="login-identifier" class="fc-input" v-model="loginForm.identifier" autocomplete="username" /></div>
+          <div class="fc-field"><label class="fc-label" for="login-password">비밀번호</label><input id="login-password" class="fc-input" type="password" v-model="loginForm.password" autocomplete="current-password" /></div>
+          <button class="fc-btn fc-btn-primary" type="submit" :disabled="!loginFormValid">로그인</button>
+        </form>
+        <form v-else class="fc-auth-panel" @submit.prevent="showAuthUnavailable('signup')">
+          <div class="fc-field"><label class="fc-label" for="signup-identifier">아이디 또는 이메일</label><input id="signup-identifier" class="fc-input" v-model="signupForm.identifier" autocomplete="username" /></div>
+          <div class="fc-field"><label class="fc-label" for="signup-password">비밀번호</label><input id="signup-password" class="fc-input" type="password" v-model="signupForm.password" autocomplete="new-password" /></div>
+          <div class="fc-field"><label class="fc-label" for="signup-password-confirm">비밀번호 확인</label><input id="signup-password-confirm" class="fc-input" type="password" v-model="signupForm.passwordConfirm" autocomplete="new-password" /></div>
+          <p v-if="signupPasswordMismatch" class="fc-auth-notice" role="status">비밀번호가 일치하지 않습니다.</p>
+          <div class="fc-signup-profile">
+            <div class="fc-field"><span class="fc-label" id="signup-gender-label">성별</span><div class="fc-select-grid" role="group" aria-labelledby="signup-gender-label"><button type="button" :class="['fc-segment-button', signupForm.gender==='여성' ? 'active':'']" :aria-pressed="signupForm.gender==='여성'" @click="signupForm.gender='여성'">여성</button><button type="button" :class="['fc-segment-button', signupForm.gender==='남성' ? 'active':'']" :aria-pressed="signupForm.gender==='남성'" @click="signupForm.gender='남성'">남성</button></div></div>
+            <div class="fc-field"><label class="fc-label" for="signup-age">나이</label><input id="signup-age" class="fc-input" type="number" inputmode="numeric" v-model="signupForm.age" /></div>
+            <div class="fc-field"><label class="fc-label" for="signup-height">키</label><input id="signup-height" class="fc-input" type="number" inputmode="decimal" step="0.1" v-model="signupForm.height" /></div>
+            <div class="fc-field"><label class="fc-label" for="signup-weight">체중</label><input id="signup-weight" class="fc-input" type="number" inputmode="decimal" step="0.1" v-model="signupForm.weight" /></div>
+          </div>
+          <button class="fc-btn fc-btn-primary" type="submit" :disabled="!signupFormValid">회원가입</button>
+        </form>
+        <p v-if="authNotice && !signupPasswordMismatch" class="fc-auth-notice" role="status">{{ authNotice }}</p>
+        <div class="fc-auth-divider" aria-hidden="true"><span>또는</span></div>
+        <button class="fc-btn fc-btn-outline" type="button" @click="continueAsGuest">비로그인으로 이용하기</button>
       </div>
 
       <!-- BASIC INFO -->
@@ -514,22 +599,22 @@ const App = {
       <div class="fc-body fc-page-parq" v-if="page==='parq'">
         <button class="fc-nav-back" @click="go('routeSelect')">← 이전</button>
         <p class="fc-eyebrow">2단계 · 안전 확인</p>
-        <div class="fc-question-progress" aria-live="polite">
-          <span>{{ parqQuestionIndex + 1 }} / {{ parqQuestions.length }}</span>
-          <strong>{{ answeredParqCount }}개 답변 완료</strong>
-        </div>
-        <div class="fc-question-track" aria-hidden="true"><span :style="{width:((parqQuestionIndex+1)/parqQuestions.length*100)+'%'}"></span></div>
-        <section class="fc-parq-focus" aria-labelledby="parq-current-question">
-          <span class="fc-badge fc-badge-good">PAR-Q 원문 문항</span>
-          <h1 class="fc-parq-question" id="parq-current-question">{{ currentParqQuestion }}</h1>
-          <p class="fc-sub">현재 상태에 맞게 답해주세요. 하나라도 ‘예’이면 안전을 위해 센터 측정을 안내합니다.</p>
-          <div class="fc-yn">
-            <button type="button" :class="['no', parqAnswers[parqQuestionIndex]===false ? 'active':'']" :aria-pressed="parqAnswers[parqQuestionIndex]===false" @click="answerCurrentParq(false)">아니오</button>
-            <button type="button" :class="['yes', parqAnswers[parqQuestionIndex]===true ? 'active':'']" :aria-pressed="parqAnswers[parqQuestionIndex]===true" @click="answerCurrentParq(true)">예</button>
-          </div>
+        <h1 class="fc-h1" id="parq-heading">운동 전 안전 확인</h1>
+        <p class="fc-sub">아래 7개 문항에 모두 답해주세요. 하나라도 ‘예’이면 안전을 위해 센터 측정을 안내합니다.</p>
+        <section class="fc-parq-list" aria-labelledby="parq-heading">
+          <article class="fc-parq-item" v-for="(question,index) in parqQuestions" :key="index">
+            <h2 :id="'parq-question-'+index"><span>{{ index + 1 }}</span>{{ question }}</h2>
+            <div class="fc-yn" role="group" :aria-labelledby="'parq-question-'+index">
+              <button type="button" :class="['no',parqAnswers[index]===false?'active':'']"
+                :aria-pressed="parqAnswers[index]===false" @click="setParq(index,false)">아니오</button>
+              <button type="button" :class="['yes',parqAnswers[index]===true?'active':'']"
+                :aria-pressed="parqAnswers[index]===true" @click="setParq(index,true)">예</button>
+            </div>
+          </article>
         </section>
-        <button type="button" class="fc-parq-previous" :disabled="parqQuestionIndex===0" @click="showPreviousParq">← 이전 문항</button>
-        <div class="fc-sticky-action"><button class="fc-btn fc-btn-primary" :disabled="!parqAnswered" @click="submitParq">안전 확인 완료</button></div>
+        <div class="fc-sticky-action">
+          <button class="fc-btn fc-btn-primary" :disabled="!parqAnswered" @click="submitParq">확인하고 다음</button>
+        </div>
       </div>
 
       <!-- HOME GUIDE -->
@@ -567,42 +652,24 @@ const App = {
 
       <!-- MEASURE INPUT (HOME) -->
       <div class="fc-body fc-page-measure" v-if="page==='measureInput'">
-        <template v-if="measurementView==='dashboard'">
-          <button class="fc-nav-back" @click="go('parq')">← 이전</button>
-          <p class="fc-eyebrow">3단계 · 자가측정</p>
-          <h1 class="fc-h1">오늘 측정할 항목</h1>
-          <div class="fc-measure-dashboard">
-            <div class="fc-measure-summary"><strong>{{ completedMeasurementCount }} / {{ measurementTotalCount }} 완료</strong><span>필수 {{ measurementTotalCount }}개 · 약 10분</span></div>
-            <div class="fc-measure-progress" aria-hidden="true"><span :style="{width:(measurementTotalCount?completedMeasurementCount/measurementTotalCount*100:0)+'%'}"></span></div>
-            <button type="button" class="fc-measure-item" v-for="(it,i) in battery" :key="it.code" @click="selectMeasurement(it)">
-              <span :class="['fc-measure-index',measurementState(it)==='완료'?'complete':'']">{{ measurementState(it)==='완료' ? '✓' : i+1 }}</span>
-              <span class="fc-measure-item-copy"><strong>{{ it.name }}</strong><small v-if="measurementState(it)==='완료'">완료 · {{ homeValues[it.code] }}{{ it.unit }}</small><small v-else>눌러서 측정하기</small></span>
-              <span class="fc-measure-item-state">{{ measurementState(it) }}</span>
-            </button>
-          </div>
-          <section class="fc-grip-option">
-            <div><strong>악력 측정 추가</strong><p>악력계가 있다면 선택 측정할 수 있어요.</p></div>
-            <div class="fc-select-grid"><button type="button" :class="['fc-segment-button',gripOwned===true?'active':'']" :aria-pressed="gripOwned===true" @click="gripOwned=true">악력계 있어요</button><button type="button" :class="['fc-segment-button',gripOwned===false?'active':'']" :aria-pressed="gripOwned===false" @click="gripOwned=false">측정하지 않아요</button></div>
-            <button v-if="gripOwned===true" type="button" class="fc-grip-start" @click="selectMeasurement(homeMeasuredItems[homeMeasuredItems.length-1])">악력 기록하기</button>
-          </section>
-          <div class="fc-sticky-action"><button class="fc-btn fc-btn-primary" :disabled="!homeInputAllFilled" @click="openReport">측정 완료 · 리포트 보기</button></div>
-        </template>
-        <template v-else-if="activeMeasurementItem">
-          <button class="fc-nav-back" @click="measurementView='dashboard'">← 측정 목록</button>
-          <div class="fc-active-measurement">
-            <div class="fc-measure-summary"><strong>{{ activeMeasurementIndex + 1 }} / {{ homeMeasuredItems.length }}</strong><span>{{ completedMeasurementCount }}개 완료</span></div>
-            <p class="fc-eyebrow">현재 측정</p>
-            <h1 class="fc-h1">{{ activeMeasurementItem.name }}</h1>
-            <p class="fc-measure-why">{{ activeMeasurementItem.why }}</p>
-            <div class="fc-measure-method"><span>측정 방법</span><p>{{ activeMeasurementItem.method }}</p></div>
-            <div class="fc-input-actions fc-measure-actions"><button type="button" class="fc-measure-guide-btn" @click="showMeasureGuide(activeMeasurementItem)">측정 방법 자세히</button><button v-if="measurementVideoFor(activeMeasurementItem)" type="button" class="fc-measure-video-btn" @click="showMeasurementVideo(activeMeasurementItem)">▶ 영상 보기</button></div>
-            <label class="fc-label" :for="'measure-'+activeMeasurementItem.code">내 기록</label>
-            <div class="fc-raw-input"><input :id="'measure-'+activeMeasurementItem.code" type="number" step="any" inputmode="decimal" :min="measurementMin(activeMeasurementItem)" placeholder="0" v-model="homeValues[activeMeasurementItem.code]" /><span>{{ activeMeasurementItem.unit }}</span></div>
-            <p class="fc-measure-note" v-if="activeMeasurementItem.note">{{ activeMeasurementItem.note }}</p>
-            <button type="button" class="fc-retry-button" @click="clearActiveMeasurement">다시 측정 · 기록 지우기</button>
-          </div>
-          <div class="fc-sticky-action"><button class="fc-btn fc-btn-primary" :disabled="!measurementValueValid(activeMeasurementItem,homeValues[activeMeasurementItem.code])" @click="completeActiveMeasurement">기록 완료</button></div>
-        </template>
+        <button class="fc-nav-back" @click="go('parq')">← 이전</button>
+        <p class="fc-eyebrow">3단계 · 자가측정</p>
+        <h1 class="fc-h1">측정 결과를 입력해 주세요</h1>
+        <p class="fc-sub">각 종목의 측정값을 입력하면 바로 체력 리포트를 확인할 수 있어요.</p>
+        <div class="fc-measure-grid">
+          <article class="fc-measure-card" v-for="(it,i) in homeMeasuredItems" :key="it.code">
+            <div class="fc-measure-card-head"><span>{{ i + 1 }}</span><h2>{{ it.name }}</h2></div>
+            <label class="fc-label" :for="'measure-'+it.code">측정값</label>
+            <div class="fc-raw-input"><input :id="'measure-'+it.code" type="number" step="any" inputmode="decimal" :min="measurementMin(it)" placeholder="0" v-model="homeValues[it.code]" /><span>{{ it.unit }}</span></div>
+            <p class="fc-measure-note" v-if="it.note">{{ it.note }}</p>
+            <div class="fc-input-actions"><button type="button" class="fc-measure-guide-btn" @click="showMeasureGuide(it)">측정 방법</button><button v-if="measurementVideoFor(it)" type="button" class="fc-measure-video-btn" @click="showMeasurementVideo(it)">▶ 영상 보기</button></div>
+          </article>
+        </div>
+        <section class="fc-grip-option">
+          <div><strong>악력 측정 추가</strong><p>악력계를 사용해 측정할지 반드시 선택해 주세요.</p></div>
+          <div class="fc-select-grid"><button type="button" :class="['fc-segment-button',gripOwned===true?'active':'']" :aria-pressed="gripOwned===true" @click="gripOwned=true">악력계 있어요</button><button type="button" :class="['fc-segment-button',gripOwned===false?'active':'']" :aria-pressed="gripOwned===false" @click="gripOwned=false">측정하지 않아요</button></div>
+        </section>
+        <div class="fc-sticky-action"><button class="fc-btn fc-btn-primary" :disabled="!homeInputAllFilled" @click="openReport">측정 완료 · 리포트 보기</button></div>
       </div>
 
       <!-- CENTER INPUT -->
@@ -633,13 +700,17 @@ const App = {
         <h1 class="fc-h1">체력인증센터 안내</h1>
         <div class="fc-card-soft" v-if="parqBlocked">
           <span class="fc-badge fc-badge-blocked">PAR-Q 1개 이상 '예'</span>
-          <p class="fc-sub" style="margin:10px 0 0">서비스 이용 차단이 아니라, 안전한 측정 경로로 안내해 드려요.</p>
+          <p class="fc-sub" style="margin:10px 0 8px">응답해주신 내용상 혼자 체력측정을 진행하기보다<br>체력인증센터에서 전문가와 함께 측정하는 것을 권장합니다.</p>
+          <p class="fc-sub" style="margin:0">전국 체력인증센터에서 체력측정과 상담을 받을 수 있습니다.</p>
         </div>
         <div class="fc-card fc-radar-card">
           <h2 class="fc-h2">지금 이용 가능해요</h2>
           <button class="fc-btn fc-btn-outline" style="margin-bottom:8px" @click="go('centerInput')">센터 측정 결과 입력</button>
           <button class="fc-btn fc-btn-outline" style="margin-bottom:8px" @click="openVideoLibrary">공단 운동 영상 열람</button>
-          <button class="fc-btn fc-btn-outline" @click="window.open('https://nfa.kspo.or.kr','_blank')">가까운 체력인증센터 찾기</button>
+          <a class="fc-btn fc-btn-outline" href="https://nfa.kspo.or.kr/intro/centerList.kspo"
+            target="_blank" rel="noopener" aria-label="가까운 체력인증센터 찾기, 새 창">
+            가까운 체력인증센터 찾기
+          </a>
         </div>
         <div class="fc-card">
           <h2 class="fc-h2">지금은 잠겨 있어요</h2>
@@ -666,7 +737,7 @@ const App = {
           <div class="fc-card fc-radar-card">
           <div v-if="chartLoading" class="fc-sub">측정 DB와 비교하는 중입니다…</div>
           <div v-else>
-            <svg class="fc-radar" viewBox="0 0 300 300" role="img" :aria-label="radarAxes.map(axis=>axis.label).join(', ')+' 레이더 차트'">
+            <svg class="fc-radar" viewBox="0 0 300 300" role="img" :aria-label="'체력 프로필 레이더 차트. '+radarAccessibleDescription">
               <defs><linearGradient id="userGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#A8D9FF" stop-opacity=".82"/><stop offset="100%" stop-color="#6FB8F6" stop-opacity=".72"/></linearGradient><linearGradient id="averageGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFD3A8" stop-opacity=".82"/><stop offset="100%" stop-color="#FFB66E" stop-opacity=".72"/></linearGradient><filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#0B4EA2" flood-opacity=".13"/></filter></defs>
               <polygon v-for="grid in radarGridLevels" :key="grid.level" :class="['fc-radar-grid','level-'+grid.level]" :points="grid.points"/>
               <line v-for="point in radarLabelPoints" :key="'line-'+point.code" class="fc-radar-axis" x1="150" y1="150" :x2="point.axisX" :y2="point.axisY"/>
@@ -681,17 +752,6 @@ const App = {
           </div>
           <p v-if="chartError" class="fc-error">{{ chartError }}</p>
         </div>
-        </section>
-
-        <section class="fc-report-section fc-report-raw-section">
-          <div class="fc-section-heading"><div><p class="fc-eyebrow">상세 기록</p><h2 class="fc-h2">내가 입력한 측정값</h2></div></div>
-          <div class="fc-result-list">
-            <article class="fc-metric-card" v-for="axis in radarAxes.filter(item=>item.measured)" :key="axis.code">
-              <div class="fc-metric-head"><span class="fc-metric-name">{{ axis.label }}</span><span v-if="ageGroup==='senior' && axis.valueCode==='chair_sit_and_reach_3m'" class="fc-badge fc-badge-warn">참고값 · 3m 표적 돌아오기</span></div>
-              <div class="fc-raw-value">{{ axis.raw }}</div>
-              <div v-if="axis.hasAverageData" class="fc-metric-compare">동일 성별·{{ axis.comparisonBand }}세 평균 {{ Number(axis.averageValue).toFixed(2) }}{{ axis.code==='GRIP_RELATIVE'?'% (상대악력)':axis.unit }}</div>
-            </article>
-          </div>
         </section>
 
         <section class="fc-report-section fc-report-compare-section">
@@ -716,14 +776,17 @@ const App = {
 
         <section class="fc-report-section fc-report-center-section">
           <p class="fc-eyebrow">더 정확한 확인</p><h2 class="fc-h2">센터 측정 안내</h2>
-          <button class="fc-btn fc-btn-outline" @click="go('centerGuidance')">가까운 체력인증센터 알아보기</button>
+          <a class="fc-btn fc-btn-outline" href="https://nfa.kspo.or.kr/intro/centerList.kspo"
+            target="_blank" rel="noopener" aria-label="가까운 체력인증센터 찾기, 새 창">
+            가까운 체력인증센터 찾기
+          </a>
         </section>
 
-        <section class="fc-report-section">
-          <h2 class="fc-h2">챗봇에게 물어보기</h2><p class="fc-sub">측정 결과와 운동 정보를 AI 체력 코치에게 물어볼 수 있어요.</p><button class="fc-btn fc-btn-outline" @click="openChat">AI 체력 코치 챗봇 열기</button>
-        </section>
-
-        <p class="fc-disclaimer">본 리포트는 자가측정 기반 참고 정보이며, 국민체력100 공식 인증 결과가 아닙니다. 의학적 진단을 대체하지 않습니다.</p>
+        <footer class="fc-report-footer-note">
+          본 리포트는 자가측정 기반 참고 정보이며,<br>
+          국민체력100 공식 인증 결과가 아닙니다.<br>
+          의학적 진단을 대체하지 않습니다.
+        </footer>
       </div>
 
       <!-- RECOMMEND -->
@@ -756,9 +819,22 @@ const App = {
         </div>
       </div>
 
+      <button v-if="page==='report'" ref="chatTrigger" class="fc-chat-fab" type="button"
+        aria-label="체력코치 AI에게 질문하기" @click="openChat"><img src="./assets/fitness-coach-chatbot.png" alt="" aria-hidden="true"></button>
+      <aside v-if="chatSidebarOpen" class="fc-chat-panel" role="dialog" aria-modal="true"
+        aria-labelledby="chat-panel-title" @keydown.stop="handleChatDialogKeydown">
+        <header class="fc-chat-head"><div><span class="fc-badge fc-badge-good">AI FITNESS COACH</span><h2 id="chat-panel-title">체력코치 AI</h2></div><button type="button" class="fc-drawer-close" @click="closeChat" aria-label="채팅 닫기">×</button></header>
+        <div class="fc-chat-messages" aria-live="polite">
+          <div v-for="(message,index) in chatMessages" :key="index" :class="['fc-chat-bubble',message.role]">{{ message.content }}</div>
+          <div v-if="chatLoading" class="fc-chat-bubble assistant">답변을 준비하고 있습니다…</div>
+        </div>
+        <form class="fc-chat-form" @submit.prevent="sendChat"><input ref="chatInput" class="fc-input" v-model="chatInput" maxlength="500" autocomplete="off" placeholder="질문 입력" aria-label="질문 입력"><button class="fc-btn fc-btn-primary" type="submit" :disabled="chatLoading || !chatInitialized || !chatInput.trim()">전송</button></form>
+      </aside>
+
     </div>
 
-    <div class="fc-drawer-backdrop" v-if="videoSidebarOpen || chatSidebarOpen || guideSidebarOpen || measurementVideoSidebarOpen" @click="videoSidebarOpen=false;chatSidebarOpen=false;guideSidebarOpen=false;measurementVideoSidebarOpen=false"></div>
+    <div class="fc-drawer-backdrop" v-if="videoSidebarOpen || guideSidebarOpen || measurementVideoSidebarOpen" @click="videoSidebarOpen=false;guideSidebarOpen=false;measurementVideoSidebarOpen=false"></div>
+    <div class="fc-chat-backdrop" v-if="chatSidebarOpen" @click="closeChat"></div>
     <aside class="fc-drawer" v-if="guideSidebarOpen && selectedMeasureGuide" role="dialog" aria-modal="true" aria-label="측정 가이드 사이드바">
       <div class="fc-drawer-head"><div><span class="fc-badge fc-badge-primary">HOME GUIDE</span><h2 class="fc-h2" style="margin:8px 0 0">{{ selectedMeasureGuide.name }}</h2></div><button class="fc-drawer-close" @click="guideSidebarOpen=false" aria-label="닫기">×</button></div>
       <p class="fc-sub">{{ selectedMeasureGuide.why }}</p><dl class="fc-guide-copy"><dt>준비물</dt><dd>{{ selectedMeasureGuide.prep }}</dd><dt>필요한 공간</dt><dd>{{ selectedMeasureGuide.space }}</dd><dt>측정 방법</dt><dd>{{ selectedMeasureGuide.method }}</dd><dt>주의사항</dt><dd>{{ selectedMeasureGuide.caution }}</dd><template v-if="selectedMeasureGuide.note"><dt>측정 오차 핵심 기준</dt><dd>{{ selectedMeasureGuide.note }}</dd></template></dl>
@@ -776,11 +852,6 @@ const App = {
       <div class="fc-drawer-video" v-for="(video,index) in dbVideos" :key="video.url"><strong>{{ index+1 }}. {{ video.title }}</strong><p class="fc-sub" style="margin:5px 0 10px">{{ video.description || '국민체력100 공식 운동 영상' }}</p><measurement-video-player v-if="youtubeGuideFor(video)" :key="youtubeGuideFor(video).youtubeId" :guide="youtubeGuideFor(video)"></measurement-video-player><p v-else class="fc-error">YouTube 영상 주소가 없어 웹뷰에서 재생할 수 없습니다.</p></div>
     </aside>
 
-    <aside class="fc-drawer" v-if="chatSidebarOpen" role="dialog" aria-modal="true" aria-label="AI 체력 코치 챗봇 사이드바">
-      <div class="fc-drawer-head"><div><span class="fc-badge fc-badge-good">Qwen3 4B · E: 하네스</span><h2 class="fc-h2" style="margin:8px 0 0">AI 체력 코치 챗봇</h2></div><button class="fc-drawer-close" @click="chatSidebarOpen=false" aria-label="닫기">×</button></div>
-      <div class="fc-chat-messages"><div v-for="(message,index) in chatMessages" :key="index" :class="['fc-chat-bubble',message.role]">{{ message.content }}</div><div v-if="chatLoading" class="fc-chat-bubble assistant">Qwen3가 DB 근거를 확인하고 있습니다…</div></div>
-      <form class="fc-chat-form" @submit.prevent="sendChat"><input class="fc-input" v-model="chatInput" maxlength="500" autocomplete="off" placeholder="예: 내 유연성을 위한 운동을 알려줘"><button class="fc-btn fc-btn-primary" type="submit" :disabled="chatLoading || !chatInitialized || !chatInput.trim()">보내기</button></form>
-    </aside>
   </div>
   `,
 };
