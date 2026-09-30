@@ -40,4 +40,3 @@
 - `apps/api/scripts/STOP_AI_FITNESS.sh`: 서비스 종료 진입점
 - `docs/frontend/assets/service-landing-live.png`: GCP 배포 서비스의 실제 랜딩 화면
 - `docs/frontend/assets/service-recommendation-live.png`: 배포 서비스의 운동 추천 화면
-
