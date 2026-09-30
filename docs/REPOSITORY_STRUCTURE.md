@@ -10,7 +10,8 @@ ai_coach_100/
 ├── data/
 │   ├── reference/           # 서비스 참조용 소형 데이터
 │   └── scripts/             # RAG 원문 DB 생성 노트북
-├── docs/                    # 기획·설계·회의·연구 문서
+├── docs/                    # 기획·설계·회의·연구·팀 역할 문서
+│   └── TEAM_ROLES.md        # 팀원별 역할 근거와 관련 산출물
 ├── evaluation/              # AI 코칭 평가 계획과 검토 자료
 ├── .env.example             # 환경변수 예시
 ├── .gitignore               # Git 제외 규칙
@@ -43,7 +44,7 @@ ai_coach_100/
 | `data/reference/videos/` | 국민체력100 운동 영상 메타데이터 JSON | 포함 |
 | `data/reference/standards/` | BMI 기준·측정 항목 데이터 사전 | 포함 |
 | `apps/api/source_data/` | 연령·BMI 추천 규칙 입력 CSV 1개 | 지정 파일만 포함 |
-| `data/scripts/build_rag_documents.ipynb` | RAG 원문 DB 생성 절차 | 포함 |
+| `data/scripts/build_rag_documents.ipynb` | RAG 원문 DB와 DuckDB 분석 절차 | 포함 |
 | `data/raw/` | 월별·종합 원본 공공데이터 | 제외 |
 
 원본 공공데이터, 사용자 측정·문진 기록, 모델 파일, Chroma 인덱스, 대용량 RAG DB는 Git에 넣지 않습니다. 팀 노션 또는 공유 드라이브에서 별도로 관리합니다.
@@ -55,13 +56,16 @@ ai_coach_100/
 | `docs/planning/` | 프로젝트 개요, 회의록, 설계·정규화 기준 |
 | `docs/research/` | EDA 보고서와 차트 |
 | `docs/frontend/` | frontend_v3의 설계·검증·P4 변경 기록 |
+| `docs/frontend/assets/service-landing-live.png` | GCP에 배포된 서비스의 랜딩 화면 |
+| `docs/frontend/assets/service-recommendation-live.png` | 측정 결과 기반 운동 추천 화면 |
 | `docs/specifications/` | 백엔드 API 요청 초안과 실제 구현 라우트 대조 |
 | `docs/competition/` | 공모전 관련 자료 |
+| `docs/TEAM_ROLES.md` | 팀원별 역할 배정, 관련 경로, 확인된 결과와 미확인 범위 |
 | `evaluation/` | 평가 계획 v1~v3, 검토자 안내문 |
 
 ## 팀 작업 전 확인
 
-1. 작업 전 `git pull`로 최신 `main`을 받습니다.
+1. 작업 전 현재 작업 브랜치의 원격 변경사항을 확인합니다.
 2. 프론트엔드 변경은 `apps/web/`, 백엔드 변경은 `apps/api/`에 반영합니다.
 3. 데이터·모델·로그가 새로 생겼다면 먼저 `.gitignore` 대상인지 확인합니다.
 4. 대용량 파일이나 사용자 정보는 커밋하지 않습니다.
