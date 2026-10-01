@@ -7,11 +7,11 @@
 - 팀명: 움직임연구소
 - 팀장: 이다겸
 - 구성 배경: AIFFEL(모두의연구소) AI 엔지니어 3기 수강생들이 자발적으로 구성한 프로젝트팀
-- 작업 범위: 기획, 공공데이터 분석, 프론트·백엔드 구현, RAG/LLM 연동, 평가, Windows 실행 패키지
+- 작업 범위: 기획, 공공데이터 분석, 프론트·백엔드 구현, RAG/LLM 연동, 평가, Windows 실행 패키지, GCP 배포·서빙, 제출 보고서 작성
 
-이 문서는 `docs/planning/project-overview.md`, `docs/planning/project-rules.md`, 3차 회의 자료, `evaluation/reviewer-brief.md`와 팀 노션을 함께 확인해 작성했습니다. 역할 배정은 확인되지만 최종 완료 주체가 적혀 있지 않은 일은 “담당으로 배정”되었다고만 표현했습니다. Git 이력만으로 다른 팀원의 작업을 한 사람이 전부 했다고 판단하지 않았습니다.
+이 문서는 `docs/planning/project-overview.md`, `docs/planning/project-rules.md`, 3차 회의 자료, `evaluation/reviewer-brief.md`, 팀 노션, 공모전 제출서류와 2026년 9월 27일 GCP 원본 증빙을 함께 확인해 작성했습니다. 역할 배정은 확인되지만 최종 완료 주체가 적혀 있지 않은 일은 “담당으로 배정”되었다고만 표현했습니다. Git 이력만으로 다른 팀원의 작업을 한 사람이 전부 했다고 판단하지 않았습니다.
 
-## 이다겸 — PM·데이터 분석·평가 설계
+## 이다겸 — PM·데이터 분석·평가 설계·Cloud Serving
 
 ### 주요 담당
 
@@ -19,6 +19,9 @@
 - 체력측정 종합 데이터 EDA와 이상 파일 확인
 - 성별·연령별 백분위 규준, 홈 측정 기준, 정규화 스펙 정리
 - 평가 케이스 작성·검수, 채점 운영과 결과 취합 담당
+- Google Cloud Compute Engine VM 구축과 서비스 배포·서빙
+- systemd 기반 FastAPI 서비스 기동, 상태 확인과 실제 요청 응답 점검
+- 활용사례보고서와 증빙자료 작성
 - 공개 저장소 구조와 문서 정리
 - 팀장으로서 주간 회의와 역할별 진행 상황 공유
 - 노션 작업 트래커에 기록된 데이터 EDA와 개인정보 수집·이용 동의서 제출
@@ -31,19 +34,30 @@
 - `docs/research/eda-report.md`
 - `evaluation/plan.md`
 - `evaluation/reviewer-brief.md`
+- `apps/api/src/fitness_web_server.py`
+- `apps/api/scripts/server.sh`
+- `apps/api/scripts/START_AI_FITNESS.sh`
+- `apps/api/scripts/STOP_AI_FITNESS.sh`
+- [`docs/deployment/GCP_SERVING_EVIDENCE.md`](deployment/GCP_SERVING_EVIDENCE.md)
+- `docs/frontend/assets/service-landing-live.png`
+- `docs/frontend/assets/service-recommendation-live.png`
+
+비공개 원본 운영 증빙은 `ai-coach-evidence-20260927` 폴더의 VM 설명, GCP 감사 로그, systemd 서비스 로그, 부팅 이력과 SHA-256 목록입니다. 개인 이메일과 접속 IP가 포함되어 있어 공개 저장소에는 요약 문서만 포함합니다.
 
 ### 대표 결과와 해결한 문제
 
 - 단일 월이 아니라 다년도 데이터를 풀링하고, 중복·부분월 파일을 제외하는 규칙을 정리했습니다.
 - 홈 측정값을 공식 인증등급처럼 보이지 않도록 CENTER 점 백분위와 HOME 구간 표시를 분리했습니다.
 - 145개 평가 케이스의 기준과 자동·사람 평가의 역할을 문서화했습니다.
+- GCP의 `ai-coach-1` 인스턴스를 생성하고 애플리케이션을 systemd 서비스로 구성해 FastAPI 기동, 상태 확인과 실제 HTTP 응답까지 검증했습니다.
+- 활용사례보고서와 증빙자료를 작성하고 팀원별 파트 검토 의견을 반영해 제출본을 정리했습니다.
 
 ### 노션에서 확인된 상태
 
 - `데이터 EDA`: Done, 담당 이다겸, 2026-09-03
 - `개인정보 수집·이용 동의서 제출`: Done, 담당 이다겸, 2026-09-30
 - `자가측정 기준 정규화`: 진행 중, 담당 이다겸, 2026-09-04
-- `제출 서류 초안 작성`: 진행 중, 담당 이다겸, 2026-09-23
+- `제출 서류 초안 작성`: 노션 기록 당시 진행 중, 담당 이다겸, 2026-09-23. 최종 활용사례보고서와 증빙자료 작성 완료는 제출본으로 추가 확인
 
 ## 김민 — 백엔드·DB·실행 패키지
 
@@ -138,7 +152,7 @@
 
 - TODO: 최종 145건 평가 실행과 결과 취합의 개인별 완료 범위 확인
 - TODO: `apps/api/`와 `apps/web/`의 파일별 실제 작성자 확인
-- TODO: 발표자료·제출 문서의 개인별 작성 범위 확인
+- 활용사례보고서와 증빙자료는 이다겸이 작성했으며, 초안은 전원이 각자 맡은 파트를 검토했습니다. 발표자료는 작성하지 않았습니다.
 
 ## 노션 전체 기록 대조
 

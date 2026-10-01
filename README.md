@@ -19,18 +19,18 @@
 | Search | Chroma · SQLite |
 | Data | CSV · JSON · SQLite · DuckDB |
 | Evaluation | pytest · 자체 평가 하네스 · 3인 블라인드 리뷰 |
-| Deployment | Google Cloud Compute Engine · PowerShell · Windows 로컬 패키지 |
+| Deployment | Google Cloud Compute Engine · systemd · HTTPS · PowerShell · Windows 로컬 패키지 |
 
 ## 팀 구성과 역할
 
-| 팀원 | 문서에서 확인된 주요 담당 |
-|---|---|
-| 이다겸 | PM, 아이디어·사용자 흐름, 공공데이터 EDA, 규준·홈 측정 설계, 평가 케이스·운영 |
-| 김민 | 백엔드·DB, 사용자 측정 기록 연동, 세션 격리, Windows 실행 패키지, RAG 연동 점검 |
-| 서한호 | 데이터·RAG·AI 서버, 구조화 응답 필드와 평가 실행 담당 |
-| 김수경 | 프론트엔드, 반응형 UI, 출처 표시와 백분위 표기 확인, 블라인드 평가 참여 요청 |
+| 팀원 | 역할 | 주요 담당 |
+|---|---|---|
+| 이&nbsp;다&nbsp;겸 | 팀장·PM·Cloud Serving | 프로젝트 기획 및 일정 관리, 공공데이터 EDA·정규화, 백분위·HOME 측정 정책, 평가 설계와 골드셋 생성·검수, GCP Compute Engine VM 구축, 서비스 배포·서빙, 활용사례보고서 및 증빙자료 작성 |
+| 김&nbsp;민 | Backend·DB | 백엔드 API, 사용자 측정기록 DB, 백분위 조회, 세션 격리, Windows 실행 패키지, 프론트·RAG 결과물 연결 |
+| 서&nbsp;한&nbsp;호 | Data·RAG·AI Server | 공공데이터 적재, RAG 파이프라인, 로컬 Qwen3 서버, 구조화 응답, 자동평가와 검색 성능 측정 |
+| 김&nbsp;수&nbsp;경| Frontend·UI/UX | 반응형 웹, 측정·리포트 시각화, 챗봇 UI, 출처·백분위 표시, 백엔드 연동 검증 |
 
-위 표는 `docs/planning`, `evaluation/reviewer-brief.md`, 팀 노션의 작업 트래커와 회의 기록을 함께 대조해 작성했습니다. 배정된 업무와 최종 완료 주체가 문서에서 구분되지 않는 항목은 개인 성과로 단정하지 않았습니다. 코드·문서·결과와 연결한 근거는 [팀 역할과 기여](docs/TEAM_ROLES.md)에 정리했습니다.
+위 표는 기획·평가 문서, 팀 노션, 공모전 제출본과 GCP 감사·서비스 로그를 대조해 작성했습니다. 활용사례보고서와 증빙자료는 이다겸이 작성했으며, 초안은 전원이 각자 맡은 파트를 검토했습니다. 코드·문서·결과와 연결한 근거는 [팀 역할과 기여](docs/TEAM_ROLES.md), GCP 구축·운영 근거는 [GCP 서비스 구축·운영 증빙](docs/deployment/GCP_SERVING_EVIDENCE.md)에 정리했습니다.
 
 ## 이 프로젝트에서 해결한 것
 
@@ -60,13 +60,32 @@
 
 ## 서비스 화면
 
-노션 증빙자료에 있던 실제 배포 화면을 사용했습니다. 기존 `fitness-coach-landing.png`와 `fitness-coach-chatbot.png`는 UI 캡처가 아니라 화면에 쓰인 일러스트이므로 아래 표에 포함하지 않았습니다.
+아래 화면은 실제 GCP 배포 화면과 공모전 제출 증빙자료에 포함된 서비스 캡처입니다. 메인 화면부터 안전 문진, 성인·어르신 측정 입력, 백분위 리포트, 운동 추천, 기록 기반 코칭, 출처 표시와 위험 질문 차단까지 주요 사용 흐름을 확인할 수 있습니다.
 
-| 랜딩·측정 시작 | 측정 결과 기반 운동 추천 |
+| GCP 배포 메인 화면 | 운동 전 안전 확인 |
 |---|---|
-| ![GCP 배포 서비스 랜딩 화면](docs/frontend/assets/service-landing-live.png) | ![국민체력100 영상과 연결된 운동 추천 화면](docs/frontend/assets/service-recommendation-live.png) |
+| 배포된 서비스의 랜딩 화면에서 체력 측정을 시작할 수 있습니다. | HOME 측정 전 PAR-Q 7문항을 확인하고, 미통과 시 자가측정 대신 센터 방문을 안내합니다. |
+| ![GCP에 배포된 AI 체력 코치 메인 화면](docs/frontend/assets/cards/service-landing-live.jpg) | ![PAR-Q 운동 전 안전 확인](docs/competition/assets/cards/service-parq.jpg) |
 
-현재 증빙자료에는 입력 화면, 백분위 리포트, 코칭 대화를 각각 보여주는 캡처가 없어 두 장만 사용했습니다.
+| 성인 HOME 측정 | 어르신 HOME 측정 |
+|---|---|
+| 앉아윗몸앞으로굽히기, 교차윗몸일으키기, 제자리멀리뛰기, 10m 4회 왕복달리기를 입력합니다. | 의자에 앉았다 일어서기, 앉아윗몸앞으로굽히기, 2분 제자리걷기, 3m 표적 돌아오기를 입력합니다. |
+| ![성인 자가측정 입력 화면](docs/competition/assets/cards/service-home-input-adult.jpg) | ![어르신 자가측정 입력 화면](docs/competition/assets/cards/service-home-input-senior.jpg) |
+
+| 또래 백분위 리포트 | 맞춤 운동 프로그램 |
+|---|---|
+| 레이더 차트와 측정항목별 또래 백분위 구간을 제공합니다. | 보완이 필요한 체력요인에 준비·본·마무리 운동을 연결합니다. |
+| ![백분위와 레이더 차트가 포함된 체력 리포트](docs/competition/assets/cards/service-percentile-report.jpg) | ![오늘의 맞춤 운동 추천](docs/competition/assets/cards/service-workout-recommendation.jpg) |
+
+| 국민체력100 공식 영상 | 기록 기반 코칭 |
+|---|---|
+| 측정항목과 연결된 국민체력100 공식 운동영상을 확인할 수 있습니다. | 저장된 측정기록으로 이전 기록과의 변화 추이를 계산합니다. |
+| ![국민체력100 공식 운동영상](docs/competition/assets/cards/service-official-video.jpg) | ![이전 측정기록 기반 변화 추이](docs/competition/assets/cards/service-coach-history.jpg) |
+
+| 출처 제시형 코칭 | 위험 질문 안전 응답 |
+|---|---|
+| 운동 질문에 검색한 공단 문서의 출처를 함께 표시합니다. | 통증 등 의료적 판단이 필요한 질문에는 운동 안내를 중단하고 전문가 상담을 권고합니다. |
+| ![운동 추천 답변의 출처 표시](docs/competition/assets/cards/service-coach-source.jpg) | ![가슴 통증 질문에 대한 안전 응답](docs/competition/assets/cards/service-coach-safety.jpg) |
 
 ## 데이터와 모델
 
@@ -117,16 +136,18 @@
 
 팀원용 경로별 안내는 [저장소 구조 안내](docs/REPOSITORY_STRUCTURE.md)를 참고합니다.
 
-- `apps/web`: P3 반응형 시연 프론트엔드
+- `apps/web`: P4 인증·PAR-Q·측정·리포트 흐름이 반영된 반응형 프론트엔드
 - `apps/api`: Python 기반 코칭·RAG·측정 로직, 테스트, 서버 기동 스크립트와 프롬프트
 - `apps/api/artifacts`: 백분위 조회용 공개 규준 DB (그 외 생성물은 Git 제외)
 - `data/reference`: 서비스가 참조하는 소형 규칙표·정규화 결과·영상 메타데이터
 - `data/scripts`: RAG 원문 DB 생성 노트북
 - `docs`: 기획, 회의, 설계 기준, EDA, 공모전 자료
 - `docs/frontend`: 프론트엔드 설계·검증 문서
-- `docs/frontend/assets/service-*-live.png`: 실제 GCP 배포 화면
+- `docs/frontend/assets`: 실제 GCP 배포 화면 원본과 README용 동일 규격 이미지
+- `docs/competition/assets`: 공모전 증빙자료에서 선별한 원본 화면과 README용 동일 규격 이미지
 - `docs/specifications`: 백엔드 API 계약 문서
 - `docs/TEAM_ROLES.md`: 팀원별 역할 근거와 관련 산출물
+- `docs/deployment/GCP_SERVING_EVIDENCE.md`: GCP VM 구축·서비스 배포·서빙 증빙 요약
 - `evaluation`: 평가 계획 v1~v3와 검토자 배포 자료
 
 ## 시작 전 확인
