@@ -76,6 +76,7 @@
 - `apps/api/src/fitness_web_server.py`
 - `apps/api/scripts/`
 - `apps/api/tests/`
+- `apps/api/KIMMIN_BACKEND_WORKLOG.md`
 - `docs/specifications/backend-api-spec.md`
 - `docs/planning/meeting-03/3주차 회의 전 확인.md`
 
@@ -84,6 +85,7 @@
 - 인증 세션 만료, 기록 소유자 확인, 프로필 전환 시 대화 분리를 백엔드 계약으로 확인했습니다.
 - HOME과 CENTER가 같은 데이터처럼 처리되지 않도록 API 응답과 화면 표시 기준을 맞췄습니다.
 - 로컬 모델, 서버, 프론트가 함께 실행되는 Windows 패키지를 정리했습니다.
+- 주차별 작업 과정과 실패·검증 범위는 `apps/api/KIMMIN_BACKEND_WORKLOG.md`에 별도로 정리했습니다.
 
 ### 확인이 더 필요한 부분
 

@@ -14,7 +14,8 @@ ai_coach_100/
 │       ├── scripts/                 # Windows/macOS/Linux 실행 스크립트
 │       ├── prompts/                 # 챗봇 시스템 프롬프트
 │       ├── artifacts/               # Git 공개가 가능한 규준 DB
-│       └── source_data/             # 공개 가능한 추천 규칙 입력 데이터
+│       ├── source_data/             # 공개 가능한 추천 규칙 입력 데이터
+│       └── KIMMIN_BACKEND_WORKLOG.md # 김민의 1~5주차 백엔드 작업 기록
 ├── data/
 │   ├── reference/                   # 서비스 참조용 규칙·정규화·영상 데이터
 │   ├── scripts/                     # RAG 원문 DB 생성 노트북
@@ -53,6 +54,7 @@ ai_coach_100/
 
 | 경로 | 내용 |
 |---|---|
+| `apps/api/KIMMIN_BACKEND_WORKLOG.md` | 김민의 1~5주차 백엔드 작업 과정과 검증 기록 |
 | `apps/api/src/fitness_web_server.py` | FastAPI 앱 진입점, 정적 화면 서빙, 코칭·백분위 API |
 | `apps/api/src/fitness_mvp.py` | `/api/mvp` 인증, 프로필, 기록, 추천, 대화 API |
 | `apps/api/src/center_percentile.py` | CENTER·HOME 백분위 조회와 표시 기준 |

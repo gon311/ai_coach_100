@@ -52,6 +52,7 @@ def safety_update(message: str, profile: Mapping[str, Any]) -> dict[str, Any] | 
     """Conservative gate before ALL routes; never silently reuse stale conditions."""
     compact = re.sub(r"\s+", "", message)
     severe = any(term in compact for term in ("흉통", "호흡곤란", "실신", "마비", "골절", "날카로운통증", "수술직후", "심한어지럼"))
+    severe = severe or ("가슴" in compact and any(term in compact for term in ("조여", "쪼여", "답답", "압박")))
     # Negation is accepted only for the explicit pain span, not for the whole message.
     cleaned = re.sub(r"(?:무릎|허리|어깨|발목|손목|가슴|다리|팔)?\s*(?:통증이?\s*(?:없어요|없어|없음|없다)|아프지\s*않(?:아요|아|다))", "", message)
     pain = PAIN.search(cleaned)
