@@ -1,4 +1,4 @@
-"""Jupyter 없이 실행하는 AI 체력 코치 로컬 웹 서버."""
+﻿"""Jupyter 없이 실행하는 AI 체력 코치 로컬 웹 서버."""
 
 from __future__ import annotations
 
@@ -59,27 +59,48 @@ from age_bmi_recommendations import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-REPO_ROOT = Path(__file__).resolve().parents[3]
-WEB_DIR = Path(os.environ.get("AI_FITNESS_WEB_DIR", str(REPO_ROOT / "apps" / "web")))
+REPOSITORY_LAYOUT = Path(__file__).resolve().parent.name == "src" and PROJECT_ROOT.name == "api"
+DEFAULT_FRONTEND_FILE = (
+    Path(__file__).resolve().parents[3] / "apps" / "web" / "index.html"
+    if REPOSITORY_LAYOUT
+    else PROJECT_ROOT.parent / "AI_fitness_frontend" / "docs" / "index.html"
+)
 FRONTEND_FILE = Path(
     os.environ.get(
         "AI_FITNESS_FRONTEND_FILE",
-        str(PROJECT_ROOT / "frontend1" / "fit-coach-webview.html"),
+        str(DEFAULT_FRONTEND_FILE),
     )
 )
-from fitness_mvp import router as fitness_mvp_router, NORM_DB as FITNESS_PACKAGE_DB, USER_DB as FITNESS_USER_DB
+FRONTEND_ASSETS_ROOT = Path(
+    os.environ.get(
+        "AI_FITNESS_FRONTEND_ASSETS_ROOT",
+        str(FRONTEND_FILE.parent if REPOSITORY_LAYOUT else FRONTEND_FILE.parent.parent),
+    )
+)
+from fitness_mvp import (
+    router as fitness_mvp_router,
+    NORM_DB as FITNESS_PACKAGE_DB,
+    USER_DB as FITNESS_USER_DB,
+    A_PATH_VERSION,
+)
 ARTIFACTS_DIR = Path(
     os.environ.get("AI_FITNESS_ARTIFACTS_DIR", str(PROJECT_ROOT / "artifacts"))
 )
 RAG_DATABASE = ARTIFACTS_DIR / "rag_documents.sqlite"
-PERCENTILE_DATABASE = ARTIFACTS_DIR / "center_percentile_norms.sqlite"
+PERCENTILE_DATABASE = Path(
+    os.environ.get(
+        "AI_FITNESS_PERCENTILE_DB",
+        str(ARTIFACTS_DIR / "center_percentile_norms.sqlite"),
+    )
+)
 AGE_BMI_RULE_DATABASE = ARTIFACTS_DIR / "age_bmi_recommendation_rules.sqlite"
 MANIFEST_PATH = ARTIFACTS_DIR / "manifest.json"
-# 실행 캐시 기본 위치: Windows는 C:\ai_fitness_qwen3_runtime, macOS/Linux는 ~/ai_fitness_qwen3_runtime
-_DEFAULT_RUNTIME_ROOT = (
-    r"C:\ai_fitness_qwen3_runtime" if os.name == "nt" else str(Path.home() / "ai_fitness_qwen3_runtime")
+DEFAULT_RUNTIME_DIR = Path(
+    os.environ.get(
+        "AI_FITNESS_RUNTIME_ROOT",
+        str(Path(os.environ.get("SystemDrive", "C:")) / "ai_fitness_qwen3_runtime"),
+    )
 )
-DEFAULT_RUNTIME_DIR = Path(os.environ.get("AI_FITNESS_RUNTIME_ROOT", _DEFAULT_RUNTIME_ROOT))
 DEFAULT_CHROMA_DIR = DEFAULT_RUNTIME_DIR / "chroma"
 CHROMA_DIR = Path(
     os.environ.get(
@@ -340,6 +361,42 @@ def _rule_exercise_key(value: Any) -> str:
     return re.sub(r"[^0-9A-Za-z가-힣]", "", display_name(value)).casefold()
 
 
+def _query_compact(value: Any) -> str:
+    """검색 비교용으로 공백·문장부호만 제거한다. 의미 토큰은 바꾸지 않는다."""
+    return re.sub(r"[^0-9A-Za-z가-힣]", "", str(value or "")).casefold()
+
+
+def _exercise_query_parts(value: Any) -> tuple[str, ...]:
+    """공식 운동명을 복합 동작 단위로 보존한 채 질의 비교 키로 만든다."""
+    text = display_name(value)
+    text = re.sub(r"\s*\([^)]*\)\s*$", "", text).strip()
+    raw_parts = re.split(r"\s*(?:/|·|\+|&|및|그리고)\s*", text)
+    parts = tuple(_query_compact(part) for part in raw_parts if _query_compact(part))
+    return parts or ((_query_compact(text),) if _query_compact(text) else ())
+
+
+def _explicit_population_constraints(question: str) -> tuple[set[str], set[str]]:
+    """질문에 직접 명시된 연령군·성별만 검색 우선순위 조건으로 사용한다."""
+    compact = _query_compact(question)
+    ages: set[str] = set()
+    age_cues = {
+        "유아기": ("유아기", "유아"),
+        "유소년": ("유소년", "아동"),
+        "청소년": ("청소년",),
+        "성인": ("성인",),
+        "어르신": ("어르신", "노인", "시니어"),
+    }
+    for label, cues in age_cues.items():
+        if any(_query_compact(cue) in compact for cue in cues):
+            ages.add(label)
+    sexes: set[str] = set()
+    if any(cue in compact for cue in ("여성", "여자")):
+        sexes.add("F")
+    if any(cue in compact for cue in ("남성", "남자")):
+        sexes.add("M")
+    return ages, sexes
+
+
 def _detail_notice(detail: dict[str, str]) -> str:
     if not detail:
         return "선택된 처방 원문에 표시할 수 있는 운동 상세 정보가 없습니다."
@@ -551,6 +608,16 @@ class RagRuntime:
             self.facet_by_id = {
                 str(record["_id"]): record for record in self.facet_records
             }
+            explicit_groups: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+            for record in self.facet_records:
+                parts = _exercise_query_parts(record.get("_exercise_name") or "")
+                if parts and sum(len(part) for part in parts) >= 4:
+                    explicit_groups.setdefault(parts, []).append(record)
+            self.explicit_exercise_groups = sorted(
+                explicit_groups.items(),
+                key=lambda item: (len(item[0]), sum(len(part) for part in item[0])),
+                reverse=True,
+            )
             self.rag_options = self._load_options(connection)
             self.exercise_detail_index = self._load_exercise_detail_index(connection)
             self.rule_detail_index = self._load_rule_detail_index(connection)
@@ -571,11 +638,13 @@ class RagRuntime:
             if BUNDLED_EMBEDDING_MODEL.is_dir()
             else EMBEDDING_MODEL_NAME
         )
-        self.embedding_model = SentenceTransformer(embedding_source)
+        embedding_device = os.environ.get("AI_FITNESS_EMBEDDING_DEVICE", "cpu")
+        self.embedding_model = SentenceTransformer(embedding_source, device=embedding_device)
         self.chroma_client = chromadb.PersistentClient(path=str(CHROMA_DIR))
         self.collection = self.chroma_client.get_collection(COLLECTION_NAME)
         self.chroma_documents = int(self.collection.count())
         validate_index(RAG_DATABASE, CHROMA_DIR, self.collection, set(self.facet_by_id))
+        self.vector_index_status = self._probe_vector_index()
 
         self.qwen3_client = Qwen3Client(
             Qwen3ServerConfig(
@@ -1216,6 +1285,41 @@ class RagRuntime:
             ).fetchall()
         return {str(row["id"]): row for row in rows}
 
+    def _probe_vector_index(self) -> dict[str, Any]:
+        """Exercise the persisted HNSW graph, not just its SQLite catalogue."""
+        try:
+            sample = self.collection.get(limit=1, include=["embeddings", "documents"])
+            ids = [str(value) for value in sample.get("ids") or []]
+            embeddings = sample.get("embeddings")
+            if not ids:
+                raise RuntimeError("vector index has no probe record")
+            if embeddings is None or len(embeddings) == 0:
+                # Older Chroma readers can query a persisted HNSW index while
+                # omitting embeddings from get().  Exercise the same graph
+                # with a freshly encoded stored document instead of treating
+                # that API difference as an unhealthy vector index.
+                documents = [str(value) for value in sample.get("documents") or []]
+                if not documents:
+                    raise RuntimeError("vector index probe record has no document")
+                embeddings = self.embed_texts([documents[0]])
+            result = self.collection.query(
+                query_embeddings=[embeddings[0]], n_results=min(5, self.chroma_documents),
+                include=["distances"],
+            )
+            returned = [str(value) for value in (result.get("ids") or [[]])[0]]
+            if ids[0] not in returned:
+                raise RuntimeError("probe document was not returned by its own embedding")
+            return {
+                "status": "healthy", "backend": "chroma_vector",
+                "probe_document_id": ids[0], "returned_count": len(returned),
+            }
+        except Exception as exc:
+            LOGGER.error("Chroma vector index probe failed: %s: %s", type(exc).__name__, exc)
+            return {
+                "status": "degraded", "backend": "sqlite_keyword_fallback",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
     def _metadata_with_facets(
         self, document_id: str, metadata: dict[str, Any]
     ) -> dict[str, Any]:
@@ -1234,6 +1338,48 @@ class RagRuntime:
         enriched["facet_basis"] = sorted(facet.get("_derived_fields", set()))
         return enriched
 
+    def _explicit_exercise_matches(
+        self, question: str, datasets: list[str] | None, limit: int
+    ) -> list[str]:
+        """Find official exercise rows explicitly named in the question.
+
+        Composite names are treated as one intent. Explicit age/sex terms filter
+        incompatible rows before vector similarity is considered.
+        """
+        compact = _query_compact(question)
+        if not compact:
+            return []
+        expected_ages, expected_sexes = _explicit_population_constraints(question)
+        allowed = set(datasets or [])
+        matches: list[tuple[tuple[int, int, int, int], str]] = []
+        for parts, records in self.explicit_exercise_groups:
+            positions: list[int] = []
+            start = 0
+            for part in parts:
+                position = compact.find(part, start)
+                if position < 0:
+                    break
+                positions.append(position)
+                start = position + len(part)
+            else:
+                phrase_size = sum(len(part) for part in parts)
+                for record in records:
+                    if allowed and record.get("_dataset") not in allowed:
+                        continue
+                    record_ages = set(record.get("age_group") or set())
+                    record_sexes = set(record.get("sex") or set())
+                    if expected_ages and record_ages and not (expected_ages & record_ages or "공통" in record_ages):
+                        continue
+                    if expected_sexes and record_sexes and not (expected_sexes & record_sexes):
+                        continue
+                    age_score = 1 if expected_ages and (expected_ages & record_ages) else 0
+                    sex_score = 1 if expected_sexes and (expected_sexes & record_sexes) else 0
+                    matches.append(((len(parts), phrase_size, age_score + sex_score, -positions[0]), str(record["_id"])))
+                if len(parts) > 1 and matches:
+                    break
+        matches.sort(key=lambda item: item[0], reverse=True)
+        return list(dict.fromkeys(document_id for _score, document_id in matches))[:limit]
+
     def semantic_search(
         self,
         question: str,
@@ -1241,13 +1387,56 @@ class RagRuntime:
         datasets: list[str] | None = None,
         min_score: float = MIN_SIMILARITY_SCORE,
     ) -> list[dict[str, Any]]:
+        explicit_ids = self._explicit_exercise_matches(
+            question, datasets, limit=max(k * 5, 20)
+        )
+        explicit_records = self._fetch_full_records(explicit_ids)
+        explicit_results: list[dict[str, Any]] = []
+        for rank, document_id in enumerate(explicit_ids):
+            record = explicit_records.get(document_id)
+            if record is None:
+                continue
+            result = {
+                "id": document_id,
+                "dataset": record["dataset"],
+                "title": record["title"],
+                "text": record["content"],
+                "metadata": self._metadata_with_facets(
+                    document_id, json.loads(record["metadata_json"])
+                ),
+                "occurrence_count": record["occurrence_count"],
+                "score": max(0.90, 0.999 - rank * 0.001),
+                "retrieval_backend": "sqlite_exact_exercise_name",
+            }
+            exercise_name = result["metadata"].get("exercise_name") or result["title"]
+            linked = self.exercise_detail_index.get(_exercise_key(exercise_name))
+            if linked and str(linked.get("document_id")) != document_id:
+                result["linked_detail_id"] = linked["document_id"]
+                result["linked_detail_text"] = linked["text"]
+            explicit_results.append(result)
+
+        if getattr(self, "vector_index_status", {}).get("status") == "degraded":
+            fallback = self.keyword_search(question, k=max(k, 5), datasets=datasets, min_score=min_score)
+            explicit_set = set(explicit_ids)
+            return (explicit_results + [item for item in fallback if item["id"] not in explicit_set])[:k]
         query_vector = self.embed_texts([question])[0]
         where = {"dataset": {"$in": datasets}} if datasets else None
-        raw = self.collection.query(
-            query_embeddings=[query_vector],
-            n_results=min(max(k * 5, 20), self.chroma_documents),
-            where=where,
-        )
+        try:
+            raw = self.collection.query(
+                query_embeddings=[query_vector],
+                n_results=min(max(k * 5, 20), self.chroma_documents),
+                where=where,
+            )
+        except Exception as exc:
+            self.vector_index_status = {
+                "status": "degraded", "backend": "sqlite_keyword_fallback",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            LOGGER.error(
+                "Chroma query failed; using SQLite keyword fallback: %s: %s",
+                type(exc).__name__, exc,
+            )
+            return self.keyword_search(question, k=k, datasets=datasets, min_score=min_score)
         ids = [str(value) for value in raw["ids"][0]]
         distances = raw["distances"][0]
         full_records = self._fetch_full_records(ids)
@@ -1269,6 +1458,7 @@ class RagRuntime:
                     ),
                     "occurrence_count": record["occurrence_count"],
                     "score": score,
+                    "retrieval_backend": "chroma_vector",
                 }
             exercise_name = result["metadata"].get("exercise_name") or result["title"]
             linked = self.exercise_detail_index.get(_exercise_key(exercise_name))
@@ -1277,7 +1467,31 @@ class RagRuntime:
                 result["linked_detail_text"] = linked["text"]
             results.append(result)
         results.sort(key=lambda item: item["score"], reverse=True)
-        selected = results[:k]
+        explicit_set = set(explicit_ids)
+        selected = (
+            explicit_results
+            + [item for item in results if item["id"] not in explicit_set]
+        )[:k]
+
+        # preserve one actual chroma result when exact hits fill the requested k
+        # The vector query has already been executed and passed min_score above.
+        # If exact-name rows occupy every returned slot, keep their priority but
+        # reserve the last slot for one genuine vector retrieval provenance row.
+        # This does not fabricate a vector hit and does not change the first-ranked
+        # exact evidence used for answer/citation selection.
+        if (
+            results
+            and k > 0
+            and not any(
+                str(item.get("retrieval_backend") or "") == "chroma_vector"
+                for item in selected
+            )
+        ):
+            vector_trace = results[0]
+            if len(selected) >= k:
+                selected = [*selected[: max(k - 1, 0)], vector_trace]
+            else:
+                selected = [*selected, vector_trace]
         LOGGER.info(
             "RAG search query=%r requested_k=%d raw=%d above_threshold=%d datasets=%s top_score=%s",
             question,
@@ -1288,6 +1502,81 @@ class RagRuntime:
             round(selected[0]["score"], 4) if selected else None,
         )
         return selected
+
+    def keyword_search(
+        self,
+        question: str,
+        k: int = 5,
+        datasets: list[str] | None = None,
+        min_score: float = MIN_SIMILARITY_SCORE,
+    ) -> list[dict[str, Any]]:
+        """Bounded SQLite fallback used only when the persisted vector index fails."""
+        stopwords = {
+            "알려줘", "추천해줘", "추천", "운동", "방법", "어떤", "가장", "부분", "이번",
+            "결과", "기록", "맞는", "맞춰", "나의", "체력", "최근", "바탕으로", "참고해서",
+        }
+        tokens: list[str] = []
+        for raw in re.findall(r"[0-9A-Za-z가-힣]{2,}", question.casefold()):
+            candidates = [raw]
+            for suffix in ("으로", "에서", "에게", "부터", "까지", "처럼", "하고", "해줘", "할까", "인가", "은", "는", "이", "가", "을", "를"):
+                if raw.endswith(suffix) and len(raw) > len(suffix) + 1:
+                    candidates.append(raw[:-len(suffix)])
+            for token in candidates:
+                if token not in stopwords and token not in tokens:
+                    tokens.append(token)
+        expansions = {
+            "유연": ("유연성", "스트레칭"), "약한": ("보완", "기초"),
+            "안전": ("주의", "준비운동"), "심폐": ("유산소", "걷기"),
+            "근력": ("근력", "근육"), "민첩": ("민첩성", "왕복달리기"),
+        }
+        for cue, values in expansions.items():
+            if cue in question:
+                for value in values:
+                    if value not in tokens:
+                        tokens.append(value)
+        tokens = tokens[:8] or ["운동"]
+
+        score_terms = []
+        where_terms = []
+        parameters: list[Any] = []
+        for token in tokens:
+            pattern = f"%{token}%"
+            score_terms.append("(CASE WHEN title LIKE ? THEN 3 ELSE 0 END + CASE WHEN content LIKE ? THEN 1 ELSE 0 END)")
+            parameters.extend((pattern, pattern))
+            where_terms.append("(title LIKE ? OR content LIKE ?)")
+        dataset_clause = ""
+        dataset_parameters: list[Any] = []
+        if datasets:
+            dataset_clause = f"dataset IN ({','.join('?' for _ in datasets)}) AND "
+            dataset_parameters.extend(datasets)
+        # Parameters occur first in the SELECT score expression, then in WHERE.
+        sql_parameters = [*parameters, *dataset_parameters, *parameters]
+        sql = (
+            "SELECT id,dataset,title,content,metadata_json,occurrence_count," +
+            " + ".join(score_terms) + " AS keyword_score FROM documents WHERE " +
+            dataset_clause + "(" + " OR ".join(where_terms) + ") " +
+            "ORDER BY keyword_score DESC,occurrence_count DESC,id LIMIT ?"
+        )
+        sql_parameters.append(max(k * 5, 20))
+        with sqlite3.connect(sqlite_readonly_uri(RAG_DATABASE), uri=True) as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(sql, sql_parameters).fetchall()
+        results = []
+        for row in rows:
+            keyword_score = float(row["keyword_score"] or 0)
+            score = min(0.79, 0.28 + keyword_score * 0.04)
+            if score < min_score:
+                continue
+            results.append({
+                "id": str(row["id"]), "dataset": str(row["dataset"]),
+                "title": str(row["title"]), "text": str(row["content"]),
+                "metadata": self._metadata_with_facets(
+                    str(row["id"]), json.loads(row["metadata_json"]),
+                ),
+                "occurrence_count": int(row["occurrence_count"]),
+                "score": score, "retrieval_backend": "sqlite_keyword_fallback",
+            })
+        return results[:k]
 
     def health(self) -> dict[str, Any]:
         qwen3 = self.qwen3_client.healthcheck()
@@ -1300,6 +1589,11 @@ class RagRuntime:
             "rag_dataset_count": len(self.rag_datasets),
             "rag_datasets": self.rag_datasets,
             "embedding_model": EMBEDDING_MODEL_NAME,
+            "embedding_device": os.environ.get("AI_FITNESS_EMBEDDING_DEVICE", "cpu"),
+            "frontend_file": str(FRONTEND_FILE.resolve()),
+            "frontend_assets_root": str(FRONTEND_ASSETS_ROOT.resolve()),
+            "artifacts_dir": str(ARTIFACTS_DIR.resolve()),
+            "chroma_dir": str(CHROMA_DIR.resolve()),
             "qwen3_ready": bool(qwen3.get("data") or qwen3.get("models")),
             "generation_model": "Qwen3-4B-Q4_K_M.gguf",
             "harness_version": "5.6.0-qwen3-general-exercise-chat",
@@ -1307,6 +1601,7 @@ class RagRuntime:
                 "facts": "source_bound_python", "model_role": "question_intent_and_labelled_interpretation"},
             "age_bmi_recommendation_rules": int(self.age_bmi_rule_status.get("row_count", 0)),
             "index_scope": "full" if self.chroma_documents == self.sqlite_documents else "sample",
+            "vector_index": self.vector_index_status,
             "note": (
                 "전체 RAG 인덱스입니다."
                 if self.chroma_documents == self.sqlite_documents
@@ -2099,7 +2394,24 @@ class RagRuntime:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_percentile_database(PERCENTILE_DATABASE)
-    app.state.runtime = await asyncio.to_thread(RagRuntime)
+    runtime = await asyncio.to_thread(RagRuntime)
+    if os.environ.get("AI_FITNESS_FORCE_SQLITE_BASELINE", "").strip() == "1":
+        runtime.vector_index_status = {
+            "status": "degraded",
+            "backend": "sqlite_keyword_fallback",
+            "forced_for_evaluation": True,
+            "reason": "reconstructed_sqlite_keyword_fallback_baseline_v2",
+        }
+        # Evaluation-only baseline contract:
+        # force every RAG lookup through semantic_search(), which then routes
+        # to keyword_search() because vector_index_status is degraded.
+        # This disables the structured SQLite shortcut only in baseline mode.
+        runtime.harness.structured_search = None
+        LOGGER.warning(
+            "FORCED EVALUATION BASELINE V2: sqlite_keyword_fallback enabled; "
+            "Chroma and structured_search shortcut bypassed."
+        )
+    app.state.runtime = runtime
     yield
 
 
@@ -2108,11 +2420,12 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+app.mount(
+    "/frontend-assets",
+    StaticFiles(directory=str(FRONTEND_ASSETS_ROOT), check_dir=False),
+    name="frontend-assets",
+)
 app.include_router(fitness_mvp_router)
-if (WEB_DIR / "css").is_dir():
-    app.mount("/css", StaticFiles(directory=WEB_DIR / "css"), name="css")
-if (WEB_DIR / "js").is_dir():
-    app.mount("/js", StaticFiles(directory=WEB_DIR / "js"), name="js")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -2140,6 +2453,7 @@ async def health() -> dict[str, Any]:
         result["fitness_package_db"] = str(FITNESS_PACKAGE_DB)
         result["fitness_user_db"] = str(FITNESS_USER_DB)
         result["fitness_mvp_ready"] = FITNESS_PACKAGE_DB.is_file() and FITNESS_USER_DB.is_file()
+        result["a_path_version"] = A_PATH_VERSION
         return result
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

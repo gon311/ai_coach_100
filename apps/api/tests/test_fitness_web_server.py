@@ -19,6 +19,19 @@ from fitness_web_server import (
 
 
 class CoachRequestTests(unittest.TestCase):
+    def test_vector_index_probe_verifies_a_real_hnsw_query(self) -> None:
+        class Collection:
+            def get(self, **_kwargs):
+                return {"ids": ["doc-1"], "embeddings": [[1.0, 0.0]]}
+
+            def query(self, **_kwargs):
+                return {"ids": [["doc-1", "doc-2"]], "distances": [[0.0, 0.2]]}
+
+        runtime = RagRuntime.__new__(RagRuntime)
+        runtime.collection = Collection()
+        runtime.chroma_documents = 2
+        self.assertEqual(runtime._probe_vector_index()["status"], "healthy")
+
     def test_stage_request_is_not_a_bmi_rank_request(self) -> None:
         runtime = RagRuntime.__new__(RagRuntime)
         context = {"age_bmi_recommendation": {"bmi": {"available": True, "bmi": 22.5, "bmi_grade": "정상"}}}
