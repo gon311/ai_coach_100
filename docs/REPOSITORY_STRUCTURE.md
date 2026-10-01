@@ -6,7 +6,7 @@
 ai_coach_100/
 ├── apps/
 │   ├── web/                 # 현재 반응형 웹 화면 (frontend_v3 P4)
-│   └── api/                 # Python/FastAPI 기반 백엔드
+│   └── api/                 # Python/FastAPI 기반 백엔드와 김민 작업 기록
 ├── data/
 │   ├── reference/           # 서비스 참조용 소형 데이터
 │   └── scripts/             # RAG 원문 DB 생성 노트북
@@ -30,6 +30,7 @@ ai_coach_100/
 | `apps/web/js/services/` | 백엔드 API 호출 | API 요청·응답 처리 |
 | `apps/web/js/utils/` | 화면 보조 함수 | 측정·레이더·YouTube 공통 로직 |
 | `apps/api/src/` | FastAPI·코칭·RAG·규준 조회 Python 코드 | 백엔드 기능·테스트 대상 로직 |
+| `apps/api/KIMMIN_BACKEND_WORKLOG.md` | 김민의 1~5주차 백엔드 작업 기록 | Codex 대화와 저장소 근거를 시간순으로 정리 |
 | `apps/api/tests/` | Python 테스트 | 기능 변경 시 테스트 추가·수정 |
 | `apps/api/scripts/` | 기존 로컬 실행 스크립트 | 백엔드 최신본 기준으로 추후 경로 정비 필요 |
 | `apps/api/prompts/` | 챗봇 시스템 프롬프트 | 프롬프트 변경·평가 시 버전 관리 |
