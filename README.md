@@ -1,6 +1,27 @@
-# AI 체력 코치
+# 🏃 AI 체력 코치
 
-> 체력측정 결과를 입력하면 또래 기준에서 현재 위치를 보여주고, 부족한 체력요인에 맞는 국민체력100 운동 자료를 찾아주는 로컬 웹 서비스
+> 국민체력100 공공데이터로 체력측정 결과를 해석하고, 또래 비교부터 맞춤 운동과 근거 기반 AI 코칭까지 연결하는 서비스<br>
+> 2026 국민체육진흥공단 공공데이터 활용 경진대회 · Team **움직임연구소**
+
+<p align="center">
+  <img src="./docs/frontend/assets/fitness-coach-landing.png" alt="AI 체력 코치 소개 이미지" width="100%" />
+</p>
+
+<p align="center">
+  <a href="https://34-11-218-94.sslip.io">서비스 바로가기</a> ·
+  <a href="./docs/PORTFOLIO.md">프로젝트 기록</a> ·
+  <a href="./docs/TEAM_ROLES.md">팀 역할과 기여</a> ·
+  <a href="./docs/REPOSITORY_STRUCTURE.md">저장소 구조</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10--3.12-3776AB?logo=python&amp;logoColor=white" alt="Python 3.10-3.12" />
+  <img src="https://img.shields.io/badge/FastAPI-0.141.1-009688?logo=fastapi&amp;logoColor=white" alt="FastAPI 0.141.1" />
+  <img src="https://img.shields.io/badge/Vue.js-3.4.21-4FC08D?logo=vuedotjs&amp;logoColor=white" alt="Vue.js 3.4.21" />
+  <img src="https://img.shields.io/badge/Qwen3-4B-6C5CE7" alt="Qwen3 4B" />
+  <img src="https://img.shields.io/badge/ChromaDB-1.5.9-FF6B35" alt="ChromaDB 1.5.9" />
+  <img src="https://img.shields.io/badge/Google_Cloud-Compute_Engine-4285F4?logo=googlecloud&amp;logoColor=white" alt="Google Cloud Compute Engine" />
+</p>
 
 국민체력100에서 측정을 받고도 “그래서 어떤 운동을 해야 하지?”라는 질문은 그대로 남습니다. AI 체력 코치는 측정 결과를 해석하는 일부터 운동을 고르고, 관련 질문에 근거를 붙여 답하는 과정까지 한 화면에서 이어지도록 만든 프로젝트입니다.
 
