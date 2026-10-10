@@ -8,6 +8,7 @@
 ai_coach_100/
 ├── apps/
 │   ├── web/                         # Vue 3 반응형 프론트엔드
+│   │   └── KIMSUGYEONG_FRONTEND_WORKLOG.md # 김수경의 1~5주차 프론트엔드 작업 기록
 │   └── api/                         # FastAPI·RAG·로컬 LLM 백엔드
 │       ├── src/                     # 서비스·데이터 생성·평가 Python 코드
 │       ├── tests/                   # 단위·계약 테스트
@@ -40,6 +41,7 @@ ai_coach_100/
 
 | 경로 | 내용 |
 |---|---|
+| [apps/web/KIMSUGYEONG_FRONTEND_WORKLOG.md](../apps/web/KIMSUGYEONG_FRONTEND_WORKLOG.md) | 김수경의 1~5주차 화면 제작·디자인 개선·연동 확인과 회고 |
 | `apps/web/index.html` | Vue 3 및 프론트 자산을 불러오는 진입 HTML |
 | `apps/web/css/style.css` | 모바일·데스크톱 반응형 UI와 컴포넌트 스타일 |
 | `apps/web/js/app.js` | PAR-Q, 측정, 리포트, 추천, 인증·기록과 챗봇 화면 흐름 |
